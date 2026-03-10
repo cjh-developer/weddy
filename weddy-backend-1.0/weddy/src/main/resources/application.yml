@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: weddy
+  datasource:
+    # [보안 주의] 운영 환경에서는 반드시 환경변수로 주입할 것
+    # 예: DB_URL, DB_USERNAME, DB_PASSWORD 환경변수 설정 후 아래와 같이 참조
+    #   url: ${DB_URL}
+    #   username: ${DB_USERNAME}
+    #   password: ${DB_PASSWORD}
+    url: jdbc:mysql://localhost:3306/weddy?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+    username: weddy
+    password: weddy01
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+    show-sql: true
+  sql:
+    init:
+      mode: never
+
+server:
+  port: 8080
+
+jwt:
+  # [보안 주의] 운영 환경에서는 반드시 환경변수로 주입할 것
+  # 예: JWT_SECRET 환경변수 설정 후 아래와 같이 참조
+  #   secret: ${JWT_SECRET}
+  # 최소 256비트(32바이트) 이상의 랜덤 문자열을 사용해야 한다.
+  secret: ${JWT_SECRET:weddySecretKeyForJwtTokenGenerationMustBe256BitsLong1234567890}
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+logging:
+  level:
+    com.project.weddy: DEBUG
