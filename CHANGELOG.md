@@ -249,3 +249,9 @@ source scripts/data.sql
 | LOW | `jwt.expiration` 30분으로 단축 (현재 24시간) |
 | LOW | 로그인 성공 로그 userId 마스킹 |
 | LOW | iOS Keychain 접근성 `first_unlock_this_device` 강화 |
+
+
+삭제
+다음 세션에서 "로그인 화면 전환 버그 확인해줘" 라고 말씀하시면 
+바로 auth_notifier.dart, auth_remote_datasource.dart,    
+dio_client.dart,─app_router.dart─를─순서대로─확인해서─원인을─찾겠습니다.─
