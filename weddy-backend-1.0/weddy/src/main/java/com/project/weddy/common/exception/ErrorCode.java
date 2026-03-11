@@ -29,6 +29,7 @@ public enum ErrorCode {
 
     // 공통
     VALIDATION_FAILED("COMMON_001", "입력값 검증에 실패했습니다.", HttpStatus.BAD_REQUEST),
+    RATE_LIMIT_EXCEEDED("COMMON_429", "요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),
     INTERNAL_SERVER_ERROR("COMMON_500", "서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String code;

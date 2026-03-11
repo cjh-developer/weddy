@@ -138,8 +138,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
-                            ? Icons.visibility_outline
-                            : Icons.visibility_off_outline,
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                       ),
                       onPressed: () {
                         setState(() {

@@ -34,7 +34,7 @@ public class WeddyUserDetailsService implements UserDetailsService {
      * <p>반환되는 UserDetails:
      * <ul>
      *   <li>username: userOid (JWT sub 클레임과 동일한 값)</li>
-     *   <li>password: BCrypt 해시된 비밀번호</li>
+     *   <li>password: SHA-512(userId|rawPassword) 해시된 비밀번호</li>
      *   <li>authorities: ROLE_USER</li>
      * </ul>
      *

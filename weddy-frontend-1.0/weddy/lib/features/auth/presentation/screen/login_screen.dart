@@ -114,8 +114,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
-                              ? Icons.visibility_outline
-                              : Icons.visibility_off_outline,
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
                         ),
                         onPressed: () {
                           setState(() {
@@ -181,7 +181,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-/// Weddy 로고 위젯 (임시 텍스트 로고).
+/// Weddy 로고 위젯.
+/// assets/images/logo.jpg 이미지를 표시하며, 로드 실패 시 텍스트 로고로 대체한다.
 class _WeddyLogo extends StatelessWidget {
   const _WeddyLogo();
 
@@ -189,24 +190,28 @@ class _WeddyLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(
-          Icons.favorite,
-          size: 64,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Weddy',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+        Image.asset(
+          'assets/images/logo.jpg',
+          width: 200,
+          height: 80,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            // 이미지 로드 실패 시 fallback
+            return const Text(
+              'Weddy',
+              style: TextStyle(
+                fontSize: 48,
                 fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
+                color: Color(0xFF22C55E),
               ),
+            );
+          },
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Text(
           '우리의 특별한 날을 함께해요',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
+                color: const Color(0xFF6B7280),
               ),
         ),
       ],

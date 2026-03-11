@@ -64,7 +64,7 @@ public class UserService {
         // 초대 코드 생성 (충돌 시 재시도)
         String inviteCode = generateUniqueInviteCode();
 
-        // 사용자 저장
+        // 사용자 저장 — BCrypt(cost=12) 해시 적용
         User user = User.builder()
                 .userId(request.getUserId())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -89,12 +89,16 @@ public class UserService {
      * @return 발급된 액세스/리프레시 토큰과 사용자 기본 정보
      */
     public AuthResponse login(LoginRequest request) {
-        // 사용자 조회
-        User user = userRepository.findByUserId(request.getUserId())
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        // 사용자 조회 (null 허용 — 사용자 열거 공격 방지를 위해 예외를 바로 던지지 않는다)
+        User user = userRepository.findByUserId(request.getUserId()).orElse(null);
 
-        // 비밀번호 검증
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        // 사용자 없거나 비밀번호 불일치 시 동일 응답으로 통일 (사용자 열거 방지)
+        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            // 타이밍 공격 방지: 사용자가 없는 경우에도 해시 연산을 수행하여
+            // 응답 시간을 일정하게 유지한다. 사용자가 없는 경우에만 실행.
+            if (user == null) {
+                passwordEncoder.encode(request.getPassword());
+            }
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
 

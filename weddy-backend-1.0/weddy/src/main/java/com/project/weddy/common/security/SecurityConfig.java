@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.weddy.common.exception.ErrorCode;
 import com.project.weddy.common.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
@@ -22,6 +23,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -31,7 +33,7 @@ import java.util.List;
  * <ul>
  *   <li>Stateless JWT 기반 인증 → 세션 생성 없음 (STATELESS)</li>
  *   <li>CSRF 비활성화 → REST API + JWT 환경에서는 불필요</li>
- *   <li>CORS 개방 → Flutter 개발 환경에서 모든 Origin 허용 (운영 시 제한 필요)</li>
+ *   <li>CORS → cors.allowed-origins 설정값 기반 명시적 Origin 허용 (환경별 분리)</li>
  *   <li>공개 경로: 인증 API, Swagger UI</li>
  *   <li>나머지 모든 경로: 인증 필수</li>
  * </ul>
@@ -43,6 +45,9 @@ public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final ObjectMapper objectMapper;
+
+    @Value("${cors.allowed-origins}")
+    private String allowedOrigins;
 
     /** 인증 없이 접근 가능한 경로 목록 */
     private static final String[] PUBLIC_PATHS = {
@@ -102,8 +107,8 @@ public class SecurityConfig {
     }
 
     /**
-     * BCrypt 강도 12 — 연산 비용과 보안성의 균형점.
-     * 기본값(10)보다 4배 더 느리지만 현대 하드웨어에서 로그인당 수백 ms 수준으로 허용 가능하다.
+     * BCrypt 기반 비밀번호 인코더 빈.
+     * cost factor 12는 보안성과 성능의 균형점으로, 일반 서버 기준 약 300ms 내외 소요된다.
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -126,23 +131,30 @@ public class SecurityConfig {
      * Spring Security의 AuthenticationManager가 DB 기반 인증을 수행할 수 있게 한다.
      */
     @Bean
-    public DaoAuthenticationProvider authenticationProvider(WeddyUserDetailsService userDetailsService) {
+    public DaoAuthenticationProvider authenticationProvider(
+            WeddyUserDetailsService userDetailsService,
+            PasswordEncoder passwordEncoder
+    ) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
+        provider.setPasswordEncoder(passwordEncoder);
         return provider;
     }
 
     /**
      * CORS 정책 설정.
-     * 운영 환경에서는 allowedOrigins를 실제 Flutter 앱 도메인으로 제한해야 한다.
+     * 허용 Origin은 application.yml의 cors.allowed-origins 값을 쉼표 구분 파싱하여 사용한다.
+     * 환경별 오버라이드: application-dev.yml, 운영은 환경변수 CORS_ALLOWED_ORIGINS 주입.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // 모든 Origin 허용 (개발용) — 운영 시 변경 필수
-        config.setAllowedOriginPatterns(List.of("*"));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        config.setAllowedOriginPatterns(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

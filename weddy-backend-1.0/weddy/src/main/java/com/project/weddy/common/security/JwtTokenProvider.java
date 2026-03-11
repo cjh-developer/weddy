@@ -43,8 +43,17 @@ public class JwtTokenProvider {
             @Value("${jwt.expiration}") long accessTokenExpiration,
             @Value("${jwt.refresh-expiration}") long refreshTokenExpiration
     ) {
+        // 키 길이 사전 검증: HMAC-SHA256 최소 요구 사항인 32바이트(256비트) 미만이면 즉시 실패
+        // 다국어 문자 포함 가능성을 고려하여 문자 수가 아닌 UTF-8 바이트 수 기준으로 검증한다.
+        byte[] secretBytes = secret == null ? new byte[0] : secret.getBytes(StandardCharsets.UTF_8);
+        if (secretBytes.length < 32) {
+            throw new IllegalStateException(
+                "JWT secret key는 최소 32바이트(256비트) 이상이어야 합니다. 현재 바이트 길이: "
+                + secretBytes.length
+            );
+        }
         // jjwt 0.12.x: Keys.hmacShaKeyFor()로 SecretKey 생성
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.secretKey = Keys.hmacShaKeyFor(secretBytes);
         this.accessTokenExpiration = accessTokenExpiration;
         this.refreshTokenExpiration = refreshTokenExpiration;
     }

@@ -2,11 +2,6 @@ spring:
   application:
     name: weddy
   datasource:
-    # [보안 주의] 운영 환경에서는 반드시 환경변수로 주입할 것
-    # 예: DB_URL, DB_USERNAME, DB_PASSWORD 환경변수 설정 후 아래와 같이 참조
-    #   url: ${DB_URL}
-    #   username: ${DB_USERNAME}
-    #   password: ${DB_PASSWORD}
     url: jdbc:mysql://localhost:3306/weddy?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
     username: weddy
     password: weddy01
@@ -17,24 +12,28 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-        format_sql: true
-    show-sql: true
+        format_sql: false
+    show-sql: false
   sql:
     init:
       mode: never
 
 server:
   port: 8080
+  # 리버스 프록시(Nginx/ALB) 뒤에서 실제 클라이언트 IP를 올바르게 추출하기 위한 설정
+  # X-Forwarded-For 헤더를 Spring이 검증하여 request.getRemoteAddr()에 실제 IP를 반영한다
+  forward-headers-strategy: NATIVE
 
 jwt:
-  # [보안 주의] 운영 환경에서는 반드시 환경변수로 주입할 것
-  # 예: JWT_SECRET 환경변수 설정 후 아래와 같이 참조
-  #   secret: ${JWT_SECRET}
-  # 최소 256비트(32바이트) 이상의 랜덤 문자열을 사용해야 한다.
-  secret: ${JWT_SECRET:weddySecretKeyForJwtTokenGenerationMustBe256BitsLong1234567890}
+  # 운영 환경: JWT_SECRET 환경변수로 주입 (최소 32자 이상 랜덤 문자열)
+  # 개발 환경: application-dev.yml에서 오버라이드
+  secret: dev-only-local-secret-must-be-changed-before-production-32chars
   expiration: 86400000
   refresh-expiration: 604800000
 
+cors:
+  allowed-origins: "*"
+
 logging:
   level:
-    com.project.weddy: DEBUG
+    com.project.weddy: INFO

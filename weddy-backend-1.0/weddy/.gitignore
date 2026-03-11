@@ -35,3 +35,6 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# 환경별 설정 파일 (개발 자격증명 포함)
+src/main/resources/application-dev.yml

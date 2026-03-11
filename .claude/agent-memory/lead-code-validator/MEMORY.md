@@ -111,3 +111,30 @@
 ### 보안 규칙
 - JWT secret: 최소 256비트(32바이트) 이상
 - 운영환경 CORS: allowedOriginPatterns("*") 금지, 실제 도메인으로 제한
+
+### PasswordEncoder 패턴 (BCrypt 복귀 확정)
+- [확인됨] 보안 패치에서 BCrypt(cost=12)로 최종 복귀 완료
+- SecurityConfig, UserService, DataInitializer 모두 BCryptPasswordEncoder(12) 사용 확인됨
+- SecurityConfig @Bean 메서드 간 직접 호출 금지 → 파라미터 주입 패턴 사용 (proxyBeanMethods 안전)
+- DataInitializer: @Profile("!test") + existsByUserId() 체크 → 멱등 보장 확인됨
+
+### 보안 패치 검토 완료 사항 (이번 세션)
+- [수정됨] CORS split(",") → stream().map(String::trim).filter(!empty) 패턴으로 공백 처리
+- [수정됨] Caffeine expireAfterWrite → expireAfterAccess (Rate Limit 버킷 만료 정책 수정)
+- [수정됨] RateLimitFilter: new ObjectMapper() → @RequiredArgsConstructor + 생성자 주입
+- [수정됨] RateLimitFilter: 하드코딩 에러코드/메시지 → ErrorCode.RATE_LIMIT_EXCEEDED enum 참조
+- [수정됨] JwtTokenProvider: secret.length() 문자 수 기준 → secretBytes.length 바이트 수 기준 검증
+- [이상 없음] BCrypt 복귀 완전성: SecurityConfig(BCryptPasswordEncoder(12) Bean), UserService(passwordEncoder.matches()),
+  DataInitializer(passwordEncoder.encode()) 모두 확인됨. Sha512PasswordEncoder 흔적 없음.
+- [이상 없음] 사용자 열거 방지: login()에서 user==null 시 dummy encode 후 UNAUTHORIZED 반환 확인
+- [이상 없음] JWT secret: application.yml 폴백 없음(${JWT_SECRET}), dev yml에 32자+ 시크릿, 바이트 검증 로직 있음
+- [이상 없음] RateLimitFilter @Order(1), bucket4j/caffeine import 정상, ApiResponse.fail() 시그니처 일치
+- [이상 없음] application.yml cors.allowed-origins 폴백값 정상 (localhost:3000 등)
+
+### Flutter flutter_dotenv 패턴 (확정)
+- .env, .env.production 을 pubspec.yaml assets에 등록 → 파일이 반드시 존재해야 빌드 성공
+- .gitignore에서 .env를 exclude하면 팀원/CI 환경에서 빌드 실패 → 두 가지 전략 중 선택 필요:
+  전략 A (현재 채택): .env를 gitignore하지 않고 커밋 (민감 정보 없을 때)
+  전략 B: .gitignore에 추가 + CI에서 환경변수로 파일 생성 (민감 정보 있을 때)
+- .env.example은 assets에 포함하지 않음 (실제 로드 대상이 아님)
+- dotenv.load() → WidgetsFlutterBinding.ensureInitialized() 다음, runApp() 이전 순서 필수

@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../storage/token_storage.dart';
@@ -15,24 +16,21 @@ import 'api_exception.dart';
 class DioClient {
   DioClient._();
 
-  // 환경별 baseUrl 분기.
-  // --dart-define=FLAVOR=staging 또는 FLAVOR=production 으로 빌드 시 교체된다.
-  // 기본값(개발)은 Android 에뮬레이터 → 호스트 머신 8080 포트.
-  // iOS 시뮬레이터는 'http://localhost:8080/api/v1' 을 사용해야 한다.
-  static const String _flavor =
-      String.fromEnvironment('FLAVOR', defaultValue: 'dev');
+  // dotenv 로부터 API_BASE_URL 을 읽는다.
+  // main()에서 dotenv.load() 가 먼저 실행되어야 한다.
+  // fallback 값은 Android 에뮬레이터 → 호스트 머신 8080 포트.
+  // iOS 시뮬레이터는 .env의 API_BASE_URL 을 'http://localhost:8080/api/v1' 로 변경하여 사용한다.
+  static String get _baseUrl =>
+      dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:8080/api/v1';
 
-  static String get _baseUrl {
-    switch (_flavor) {
-      case 'production':
-        return 'https://api.weddy.co.kr/api/v1';
-      case 'staging':
-        return 'https://staging-api.weddy.co.kr/api/v1';
-      default:
-        // dev: Android 에뮬레이터에서 호스트 머신 접근용 IP
-        return 'http://10.0.2.2:8080/api/v1';
-    }
-  }
+  static int get _connectTimeoutSec =>
+      int.tryParse(dotenv.env['CONNECT_TIMEOUT_SEC'] ?? '30') ?? 30;
+
+  static int get _receiveTimeoutSec =>
+      int.tryParse(dotenv.env['RECEIVE_TIMEOUT_SEC'] ?? '30') ?? 30;
+
+  static int get _sendTimeoutSec =>
+      int.tryParse(dotenv.env['SEND_TIMEOUT_SEC'] ?? '30') ?? 30;
 
   /// [onUnauthorized]: 401 응답 시 호출되는 콜백.
   /// AuthNotifier.logout()을 주입하여 상태 전환 및 go_router redirect를 트리거한다.
@@ -44,10 +42,10 @@ class DioClient {
     final dio = Dio(
       BaseOptions(
         baseUrl: _baseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
+        connectTimeout: Duration(seconds: _connectTimeoutSec),
+        receiveTimeout: Duration(seconds: _receiveTimeoutSec),
         // sendTimeout 누락 시 대용량 요청(파일 업로드 등)에서 무한 대기 발생 가능.
-        sendTimeout: const Duration(seconds: 30),
+        sendTimeout: Duration(seconds: _sendTimeoutSec),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',

@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:weddy/core/network/dio_client.dart';
 import 'package:weddy/core/router/app_router.dart';
 import 'package:weddy/features/auth/presentation/notifier/auth_notifier.dart';
 
-void main() {
+Future<void> main() async {
   // flutter_secure_storage 등 네이티브 플러그인이 runApp 이전에 초기화된
   // Flutter 엔진 바인딩을 필요로 하므로 반드시 먼저 호출해야 한다.
   WidgetsFlutterBinding.ensureInitialized();
+
+  // FLAVOR에 따라 환경 파일을 선택하여 dotenv를 로드한다.
+  // 빌드 시: flutter run --dart-define=FLAVOR=production
+  // 기본값은 dev (.env 파일 사용).
+  const flavor = String.fromEnvironment('FLAVOR', defaultValue: 'dev');
+  final envFile = flavor == 'production' ? '.env.production' : '.env';
+  await dotenv.load(fileName: envFile);
 
   runApp(
     // ProviderScope는 앱의 최상단에서 모든 Riverpod Provider를 감싸야 한다.
@@ -59,13 +67,55 @@ class _WeddyAppState extends ConsumerState<WeddyApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFE8A0BF), // 웨딩 핑크 톤
+          seedColor: const Color(0xFF22C55E),
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-        // 입력 필드 기본 테마: 모든 화면에서 일관된 스타일
+        scaffoldBackgroundColor: const Color(0xFFF0FDF4),
+        appBarTheme: const AppBarTheme(
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: Color(0xFFF0FDF4),
+          foregroundColor: Color(0xFF15803D),
+          titleTextStyle: TextStyle(
+            color: Color(0xFF15803D),
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF22C55E),
+            foregroundColor: Colors.white,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
+          ),
+        ),
         inputDecorationTheme: const InputDecorationTheme(
           filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderSide: BorderSide(color: Color(0xFFBBF7D0)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderSide: BorderSide(color: Color(0xFFBBF7D0)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderSide: BorderSide(color: Color(0xFF22C55E), width: 2),
+          ),
+          prefixIconColor: Color(0xFF22C55E),
+        ),
+        cardTheme: const CardTheme(
+          color: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            side: BorderSide(color: Color(0xFFBBF7D0)),
+          ),
         ),
       ),
       routerConfig: router,
