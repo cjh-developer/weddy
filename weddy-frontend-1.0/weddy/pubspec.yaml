@@ -54,6 +54,9 @@ dependencies:
   # Environment Configuration
   flutter_dotenv: ^5.2.1
 
+  # Fonts
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

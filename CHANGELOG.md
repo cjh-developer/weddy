@@ -250,8 +250,86 @@ source scripts/data.sql
 | LOW | 로그인 성공 로그 userId 마스킹 |
 | LOW | iOS Keychain 접근성 `first_unlock_this_device` 강화 |
 
+---
 
-삭제
-다음 세션에서 "로그인 화면 전환 버그 확인해줘" 라고 말씀하시면 
-바로 auth_notifier.dart, auth_remote_datasource.dart,    
-dio_client.dart,─app_router.dart─를─순서대로─확인해서─원인을─찾겠습니다.─
+## [2.6단계] 버그 수정 (2026-03-14)
+
+### Fixed — 로그인/회원가입 후 화면 전환 불가
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `lib/features/auth/presentation/screen/login_screen.dart` | `ref.listen<AuthState>` 콜백에서 `AuthAuthenticated` 수신 시 `context.go(AppRoutes.home)` 직접 호출 |
+| `lib/features/auth/presentation/screen/sign_up_screen.dart` | `ref.listen<AuthState>` 콜백에서 `AuthUnauthenticated` 전환 시 `context.go(AppRoutes.login)` 직접 호출 |
+| `lib/features/auth/presentation/notifier/auth_notifier.dart` | `signup()` 완료 후 `AuthUnauthenticated` 설정 + `clearTokens` (자동 로그인 방지) |
+
+- 원인: Riverpod 2.5.x에서 GoRouter `refreshListenable` + Provider 내부 `ref.listen` 조합이 불안정
+- 해결: Screen 레이어에서 `ref.listen` + `context.go()` 직접 호출 패턴으로 전환
+
+### Fixed — Flutter Web RenderFlex overflow
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `lib/features/auth/presentation/screen/login_screen.dart` | `Text('계정이 없으신가요?')` → `Flexible(child: Text(..., overflow: TextOverflow.ellipsis))` |
+
+- 증상: `RenderFlex overflowed by 90 pixels on the right` at `login_screen.dart:164`
+
+### Fixed — Flutter Web SubtleCrypto.OperationError (flutter_secure_storage)
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `lib/core/storage/_local_storage.dart` (신규) | 웹 전용 `dart:html` localStorage 래퍼 |
+| `lib/core/storage/_local_storage_stub.dart` (신규) | 비웹 플랫폼용 no-op 스텁 |
+| `lib/core/storage/token_storage.dart` | Dart 조건부 임포트 + `kIsWeb` 분기: 웹은 localStorage, 네이티브는 flutter_secure_storage |
+
+- 증상: 로그인 성공 후 `WebCrypto SubtleCrypto.OperationError` 발생
+- 원인: `flutter_secure_storage`가 일부 Chrome 환경에서 Web Crypto API 호출 실패
+- 해결: 플랫폼 조건부 임포트 (`dart.library.html`) + `kIsWeb` 런타임 분기
+
+---
+
+## [2.7단계] UI 전면 재설계 — 핑크 테마 (2026-03-14)
+
+### Added — google_fonts 패키지
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `pubspec.yaml` | `google_fonts: ^6.2.1` 추가 |
+
+### Changed — 핑크 테마 전면 적용
+
+**색상 팔레트**
+
+| 상수 | 값 | 용도 |
+|------|-----|------|
+| `_kPink` | `#EC4899` | 주 색상 (Tailwind pink-500) |
+| `_kDarkPink` | `#DB2777` | hover/dark (pink-600) |
+| `_kLightPink` | `#FCE7F3` | 칩 선택 배경 (pink-100) |
+| `_kBg` | `#FDF2F8` | Scaffold 배경 (연핑크) |
+| `_kDark` | `#374151` | 회원가입 버튼 (gray-700) |
+| `_kDarkHover` | `#1F2937` | 회원가입 버튼 hover (gray-800) |
+
+**공통 UI 변경**
+
+- 로고: 핑크 원형 배경 (76x76, 핑크 glow shadow) + 흰색 하트(38px) + 연핑크 하트(28px) Stack 레이어 조합
+- WEDDY 텍스트: `google_fonts.PlayfairDisplay`, `Colors.black87`
+- `_AnimatedField` 위젯: `FocusNode` 감지, 포커스 시 `AnimatedScale(1.012)` + glow 효과, prefix 아이콘 색상 전환
+- 푸터: `© 2025 CJH. All rights reserved.`
+
+### Changed — login_screen.dart
+
+| 항목 | 변경 내용 |
+|------|-----------|
+| 로그인 버튼 (`_PinkButton`) | 핑크 그라디언트 (`#EC4899` → `#F9A8D4`), hover/press 애니메이션 |
+| 소셜 로그인 버튼 | Google / Naver / Kakao 3종 (UI only, tap 시 "준비중" SnackBar) |
+| Google G 로고 (`_GoogleGPainter`) | `CustomPainter` + `dart:math` — 4색 분할 원호 + 파란색 가로 바로 실제 G 마크 구현 |
+| 회원가입 링크 | `TextButton` → 인라인 Row 스타일 ("아직 계정이 없으신가요? 회원가입") |
+
+### Changed — sign_up_screen.dart
+
+| 항목 | 변경 내용 |
+|------|-----------|
+| 역할 선택 칩 | 세로 카드 → 가로 compact 칩 (높이 44px, 이모지 + 텍스트 한 줄) |
+| 칩 선택 색상 | `_kLightPink` 배경 + `_kPink` 테두리 + `_kDarkPink` 텍스트 |
+| 회원가입 버튼 (`_DarkButton`) | 다크 그레이 솔리드 (`#374151`), hover 시 `#1F2937`, 그라디언트 없음 |
+| 입력 필드 prefix 아이콘 | 아이디: person / 비밀번호: lock / 이름: badge / 휴대폰: phone / 이메일: email |
+| 로그인 링크 | `TextButton` → 인라인 Row 스타일 ("이미 계정이 있으신가요? 로그인")

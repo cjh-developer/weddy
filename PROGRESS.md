@@ -1,6 +1,6 @@
 # Weddy 프로젝트 개발 진행 현황
 
-> 최종 업데이트: 2026-03-11
+> 최종 업데이트: 2026-03-14
 
 ---
 
@@ -114,7 +114,9 @@
 | `PageResponse<T>` | `core/network/` | 페이지네이션 모델 |
 | `ApiException` | `core/network/` | API 에러 처리 |
 | `DioClient` | `core/network/` | Dio 설정, JWT 자동 주입 인터셉터 |
-| `TokenStorage` | `core/storage/` | flutter_secure_storage JWT 저장 |
+| `TokenStorage` | `core/storage/` | flutter_secure_storage JWT 저장 (웹: localStorage 분기) |
+| `_local_storage.dart` | `core/storage/` | 웹 전용 localStorage 구현 (dart:html) |
+| `_local_storage_stub.dart` | `core/storage/` | 비웹 플랫폼용 no-op 스텁 |
 
 **주요 설계 결정:**
 - baseUrl: `--dart-define=FLAVOR=dev|staging|production` 환경 분리
@@ -182,6 +184,90 @@
 - 401 처리: `unauthorizedCallbackProvider` override → `main.dart`에서 `AuthNotifier.logout()` 연결 (순환 의존성 방지)
 - `checkAuthStatus()`: `initState + addPostFrameCallback`으로 타이밍 이슈 방지
 - `login/signup` 후 `/users/me` 호출로 완전한 `UserModel` 획득
+
+---
+
+## 2.6단계: 버그 수정 (2026-03-14, 완료)
+
+### 버그 1 — 로그인/회원가입 후 화면 전환 불가
+
+| 항목 | 내용 |
+|------|------|
+| 원인 | Riverpod 2.5.x에서 GoRouter `refreshListenable` + Provider 내부 `ref.listen` 조합이 불안정 |
+| 해결 | `LoginScreen` / `SignUpScreen`의 `ref.listen` 콜백에서 `context.go()` 직접 호출 |
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `lib/features/auth/presentation/screen/login_screen.dart` | `AuthAuthenticated` 수신 시 `context.go(AppRoutes.home)` 직접 호출 |
+| `lib/features/auth/presentation/screen/sign_up_screen.dart` | `AuthUnauthenticated` 전환 시 `context.go(AppRoutes.login)` 직접 호출 |
+| `lib/features/auth/presentation/notifier/auth_notifier.dart` | `signup()` 완료 후 `AuthUnauthenticated` 설정 (자동 로그인 방지, `clearTokens` 포함) |
+
+### 버그 2 — Flutter Web RenderFlex overflow
+
+| 항목 | 내용 |
+|------|------|
+| 증상 | `RenderFlex overflowed by 90 pixels on the right` at `login_screen.dart:164` |
+| 원인 | Row 내부 Text 위젯이 가용 너비 초과 |
+| 해결 | `Text('계정이 없으신가요?')` → `Flexible(child: Text(..., overflow: TextOverflow.ellipsis))` |
+
+### 버그 3 — Flutter Web SubtleCrypto.OperationError
+
+| 항목 | 내용 |
+|------|------|
+| 증상 | 로그인 성공 후 `flutter_secure_storage` WebCrypto API 실패 |
+| 원인 | `flutter_secure_storage`가 일부 Chrome 환경에서 Web Crypto API 호출 실패 |
+| 해결 | Dart 조건부 임포트 + `kIsWeb` 분기로 웹에서는 `dart:html` localStorage 사용 |
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `lib/core/storage/_local_storage.dart` (신규) | 웹 전용 localStorage 구현 (`dart:html`) |
+| `lib/core/storage/_local_storage_stub.dart` (신규) | 비웹 플랫폼용 no-op 스텁 |
+| `lib/core/storage/token_storage.dart` | `import '_local_storage_stub.dart' if (dart.library.html) '_local_storage.dart'` + `kIsWeb` 분기 |
+
+---
+
+## 2.7단계: UI 전면 재설계 (2026-03-14, 완료)
+
+**목적**: 핑크 테마 기반 로그인/회원가입 화면 전면 재설계
+
+**추가 패키지**: `google_fonts: ^6.2.1` (pubspec.yaml 추가)
+
+### 색상 팔레트
+
+| 상수 | 값 | 용도 |
+|------|-----|------|
+| `_kPink` | `#EC4899` | 주 색상 (Tailwind pink-500) |
+| `_kDarkPink` | `#DB2777` | hover/dark (pink-600) |
+| `_kLightPink` | `#FCE7F3` | 칩 선택 배경 (pink-100) |
+| `_kBg` | `#FDF2F8` | Scaffold 배경 (연핑크) |
+| `_kDark` | `#374151` | 회원가입 버튼 (gray-700) |
+| `_kDarkHover` | `#1F2937` | 회원가입 버튼 hover (gray-800) |
+
+### 공통 변경사항
+
+| 항목 | 내용 |
+|------|------|
+| 로고 | 핑크 원형 배경 + 흰색/연핑크 이중 하트 아이콘 (Stack 레이어) |
+| WEDDY 텍스트 | Playfair Display (google_fonts), Colors.black87 |
+| 입력 필드 | `_AnimatedField` 위젯: FocusNode 감지, 포커스 시 `AnimatedScale(1.012)` + 초록 glow 제거 → 핑크 glow |
+| 푸터 | `© 2025 CJH. All rights reserved.` |
+
+### login_screen.dart 변경
+
+| 항목 | 내용 |
+|------|------|
+| 로그인 버튼 (`_PinkButton`) | 핑크 그라디언트 (`#EC4899` → `#F9A8D4`), hover 시 다크핑크 |
+| 소셜 로그인 | Google / Naver / Kakao 버튼 (UI only, "준비중" snackbar) |
+| Google G 로고 | `_GoogleGPainter extends CustomPainter` — 4색 분할 원호 + 파란색 가로 바 (`dart:math` 사용) |
+
+### sign_up_screen.dart 변경
+
+| 항목 | 내용 |
+|------|------|
+| 역할 칩 | 세로 카드 → 가로 compact 칩 (높이 44px, 이모지 + 텍스트 한 줄) |
+| 칩 선택 색상 | `_kLightPink` 배경 + `_kPink` 테두리 + `_kDarkPink` 텍스트 |
+| 회원가입 버튼 (`_DarkButton`) | 다크 그레이 솔리드 (`#374151`), hover 시 `#1F2937`, 그라디언트 없음 |
+| 입력 필드 prefix 아이콘 | 아이디: person / 비밀번호: lock / 이름: badge / 휴대폰: phone / 이메일: email |
 
 ---
 
@@ -280,6 +366,9 @@ flutter run --dart-define=FLAVOR=dev
 |------|------|------|
 | 1단계 | 공통 기반 (ApiResponse, JWT, Dio) | ✅ 완료 |
 | 2단계 | 인증 (회원가입, 로그인, 토큰 갱신) | ✅ 완료 |
+| 2.5단계 | 보안·환경·UI 개선 (BCrypt, RateLimit, CORS, dotenv) | ✅ 완료 |
+| 2.6단계 | 버그 수정 (화면 전환, Web 렌더링, Web 토큰 저장) | ✅ 완료 |
+| 2.7단계 | UI 전면 재설계 (핑크 테마, Google G 로고, 애니메이션) | ✅ 완료 |
 | **3단계** | **커플 연결** (초대코드로 신랑-신부 연결) | 🔲 대기 |
 | 4단계 | 체크리스트 CRUD | 🔲 대기 |
 | 5단계 | 예산 관리 CRUD | 🔲 대기 |

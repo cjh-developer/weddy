@@ -172,19 +172,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// 회원가입을 수행하고 성공 시 [AuthAuthenticated]로 전환한다.
+  /// 회원가입을 수행하고 성공 시 [AuthUnauthenticated]로 전환한다.
+  ///
+  /// 회원가입 후 자동 로그인하지 않고 로그인 화면으로 이동시킨다.
+  /// 서버가 발급한 토큰은 즉시 삭제하여 미인증 상태를 유지한다.
   Future<void> signup(SignUpRequest request) async {
     state = const AuthLoading();
 
     try {
       await _repository.signup(request);
-
-      final user = await _repository.getMyInfo();
-      developer.log(
-        '[AuthNotifier] signup success: ${user.userId}',
-        name: 'AuthNotifier',
-      );
-      state = AuthAuthenticated(user);
+      // 회원가입 성공 — 토큰을 즉시 삭제하여 자동 로그인을 방지한다.
+      await _tokenStorage.clearTokens();
+      developer.log('[AuthNotifier] signup success → unauthenticated', name: 'AuthNotifier');
+      state = const AuthUnauthenticated();
     } on ApiException catch (e) {
       developer.log(
         '[AuthNotifier] signup failed: ${e.message}',

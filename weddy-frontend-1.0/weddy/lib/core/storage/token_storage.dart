@@ -1,63 +1,69 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// JWT 토큰을 기기의 안전한 저장소(Keychain / Keystore)에 보관하는 클래스.
+// 웹: dart:html의 localStorage 헬퍼 사용.
+// 네이티브: 빈 스텁 (kIsWeb 분기로 실제 호출되지 않음).
+import '_local_storage_stub.dart'
+    if (dart.library.html) '_local_storage.dart';
+
+/// JWT 토큰을 플랫폼에 맞는 저장소에 보관하는 클래스.
 ///
-/// flutter_secure_storage를 래핑하여 토큰 관련 작업을 단일 책임으로 캡슐화한다.
-/// Riverpod Provider([tokenStorageProvider])를 통해 싱글톤으로 주입받아 사용한다.
-/// 직접 인스턴스화 시에는 Provider에서 생명주기를 관리하지 않으므로 주의한다.
+/// - 웹(Chrome 등): 브라우저 localStorage 사용.
+///   flutter_secure_storage 의 Web Crypto API 호출(OperationError)을 우회한다.
+/// - Android: EncryptedSharedPreferences (API 23+)
+/// - iOS: Keychain (first_unlock 접근성)
 ///
-/// 사용 예:
-/// ```dart
-/// // Provider 주입 (권장)
-/// final storage = ref.read(tokenStorageProvider);
-/// await storage.saveAccessToken('eyJhbGci...');
-/// final token = await storage.getAccessToken();
-/// ```
+/// Riverpod [tokenStorageProvider]를 통해 싱글톤으로 주입받아 사용한다.
 class TokenStorage {
-  // static const 로 공유 인스턴스를 두면 TokenStorage 가 여러 개 생성될 경우에도
-  // 동일한 FlutterSecureStorage 를 바라보게 되어 숨겨진 결합이 생긴다.
-  // Provider 에서 싱글톤을 보장하므로 인스턴스 필드로 유지한다.
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
-    // Android: EncryptedSharedPreferences 사용 (API 23+)
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
     ),
-    // iOS: 기본 접근성(first unlock 이후)으로 Keychain 접근.
-    // 앱 그룹 공유가 필요하면 groupId 를 설정한다.
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock,
     ),
   );
 
-  // 저장 키 - 오타 방지를 위해 static const로 중앙 관리.
   static const String _keyAccessToken = 'auth_access_token';
   static const String _keyRefreshToken = 'auth_refresh_token';
 
-  /// Access Token을 안전한 저장소에 저장한다.
+  /// Access Token을 저장한다.
   Future<void> saveAccessToken(String token) async {
+    if (kIsWeb) {
+      localStorageWrite(_keyAccessToken, token);
+      return;
+    }
     await _storage.write(key: _keyAccessToken, value: token);
   }
 
-  /// Refresh Token을 안전한 저장소에 저장한다.
+  /// Refresh Token을 저장한다.
   Future<void> saveRefreshToken(String token) async {
+    if (kIsWeb) {
+      localStorageWrite(_keyRefreshToken, token);
+      return;
+    }
     await _storage.write(key: _keyRefreshToken, value: token);
   }
 
-  /// 저장된 Access Token을 반환한다.
-  /// 저장된 값이 없으면 null을 반환한다.
+  /// 저장된 Access Token을 반환한다. 없으면 null.
   Future<String?> getAccessToken() async {
+    if (kIsWeb) return localStorageRead(_keyAccessToken);
     return _storage.read(key: _keyAccessToken);
   }
 
-  /// 저장된 Refresh Token을 반환한다.
-  /// 저장된 값이 없으면 null을 반환한다.
+  /// 저장된 Refresh Token을 반환한다. 없으면 null.
   Future<String?> getRefreshToken() async {
+    if (kIsWeb) return localStorageRead(_keyRefreshToken);
     return _storage.read(key: _keyRefreshToken);
   }
 
   /// Access Token과 Refresh Token을 모두 삭제한다.
-  /// 로그아웃 또는 인증 만료 시 호출한다.
   Future<void> clearTokens() async {
+    if (kIsWeb) {
+      localStorageDelete(_keyAccessToken);
+      localStorageDelete(_keyRefreshToken);
+      return;
+    }
     await Future.wait([
       _storage.delete(key: _keyAccessToken),
       _storage.delete(key: _keyRefreshToken),
@@ -69,6 +75,11 @@ class TokenStorage {
     required String accessToken,
     required String refreshToken,
   }) async {
+    if (kIsWeb) {
+      localStorageWrite(_keyAccessToken, accessToken);
+      localStorageWrite(_keyRefreshToken, refreshToken);
+      return;
+    }
     await Future.wait([
       saveAccessToken(accessToken),
       saveRefreshToken(refreshToken),
