@@ -17,7 +17,7 @@ import java.util.List;
 public class ChecklistResponse {
 
     private String oid;
-    private String coupleOid;
+    private String ownerOid;
     private String title;
     private String category;
     private LocalDateTime createdAt;
@@ -33,7 +33,7 @@ public class ChecklistResponse {
     public static ChecklistResponse from(Checklist checklist, List<ChecklistItem> items) {
         return ChecklistResponse.builder()
                 .oid(checklist.getOid())
-                .coupleOid(checklist.getCoupleOid())
+                .ownerOid(checklist.getOwnerOid())
                 .title(checklist.getTitle())
                 .category(checklist.getCategory())
                 .createdAt(checklist.getCreatedAt())

@@ -4,7 +4,7 @@ import 'checklist_item_model.dart';
 /// 서버 ChecklistResponse DTO와 1:1 대응한다.
 class ChecklistModel {
   final String oid;
-  final String coupleOid;
+  final String ownerOid;
   final String title;
   final String? category;
   final DateTime createdAt;
@@ -12,7 +12,7 @@ class ChecklistModel {
 
   const ChecklistModel({
     required this.oid,
-    required this.coupleOid,
+    required this.ownerOid,
     required this.title,
     this.category,
     required this.createdAt,
@@ -21,7 +21,7 @@ class ChecklistModel {
 
   factory ChecklistModel.fromJson(Map<String, dynamic> json) => ChecklistModel(
         oid: json['oid'] as String,
-        coupleOid: json['coupleOid'] as String,
+        ownerOid: json['ownerOid'] as String,
         title: json['title'] as String,
         category: json['category'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
@@ -33,7 +33,7 @@ class ChecklistModel {
   ChecklistModel copyWithItems(List<ChecklistItemModel> newItems) =>
       ChecklistModel(
         oid: oid,
-        coupleOid: coupleOid,
+        ownerOid: ownerOid,
         title: title,
         category: category,
         createdAt: createdAt,
