@@ -38,6 +38,7 @@ public class CoupleService {
      *   <li>이미 커플 연결 여부 확인 → COUPLE_ALREADY_CONNECTED</li>
      *   <li>파트너 초대코드로 파트너 조회 → 없으면 INVALID_INVITE_CODE</li>
      *   <li>자기 자신 코드 입력 방지 → INVALID_INVITE_CODE</li>
+     *   <li>동일 역할 방지 (GROOM+GROOM, BRIDE+BRIDE) → INVALID_COUPLE_ROLE</li>
      *   <li>파트너 중복 커플 연결 여부 확인 → COUPLE_ALREADY_CONNECTED</li>
      *   <li>role에 따라 groom/bride 배정</li>
      *   <li>weddingDate: 현재 사용자 우선 → 파트너 날짜 → null</li>
@@ -61,6 +62,10 @@ public class CoupleService {
 
         if (me.getOid().equals(partner.getOid())) {
             throw new CustomException(ErrorCode.INVALID_INVITE_CODE);
+        }
+
+        if (me.getRole() == partner.getRole()) {
+            throw new CustomException(ErrorCode.INVALID_COUPLE_ROLE);
         }
 
         if (coupleRepository.existsByGroomOidOrBrideOid(partner.getOid(), partner.getOid())) {
