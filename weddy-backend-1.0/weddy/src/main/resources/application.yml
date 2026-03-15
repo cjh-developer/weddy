@@ -12,38 +12,32 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-        format_sql: false
-    show-sql: false
+        format_sql: true
+    show-sql: true
   sql:
     init:
       mode: never
 
 server:
   port: 8080
-  # 리버스 프록시(Nginx/ALB) 뒤에서 실제 클라이언트 IP를 올바르게 추출하기 위한 설정
-  # X-Forwarded-For 헤더를 Spring이 검증하여 request.getRemoteAddr()에 실제 IP를 반영한다
   forward-headers-strategy: NATIVE
 
 jwt:
-  # 운영 환경: JWT_SECRET 환경변수 필수 주입 (최소 32자). 폴백 없음 → 미설정 시 기동 실패
-  # 개발 환경: application-dev.yml에서 오버라이드
-  secret: ${JWT_SECRET}
+  secret: dev-only-local-secret-must-be-changed-before-production-32chars
   expiration: 86400000
   refresh-expiration: 604800000
 
 cors:
   # 모바일 앱(Android/iOS) 배포 환경 — CORS는 브라우저 전용 제약이므로 와일드카드 허용
-  # Flutter Web 배포 시에는 실제 도메인으로 교체 필요
   allowed-origins: "*"
 
 springdoc:
-  # 기본값: 비활성화. 개발 프로파일(application-dev.yml)에서만 활성화한다.
-  # 운영 환경에 Swagger UI가 노출되면 API 스펙이 공개되어 공격 표면이 넓어진다.
   api-docs:
-    enabled: false
+    enabled: true
   swagger-ui:
-    enabled: false
+    enabled: true
+    path: /swagger-ui.html
 
 logging:
   level:
-    com.project.weddy: INFO
+    com.project.weddy: DEBUG
