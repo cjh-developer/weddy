@@ -57,13 +57,30 @@ Color _dueDateColor(DateTime? dueDate) {
 // ---------------------------------------------------------------------------
 
 class ChecklistScreen extends ConsumerStatefulWidget {
-  const ChecklistScreen({super.key});
+  final String? targetOid;
+  const ChecklistScreen({super.key, this.targetOid});
 
   @override
   ConsumerState<ChecklistScreen> createState() => _ChecklistScreenState();
 }
 
 class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
+  final Map<String, GlobalKey> _sectionKeys = {};
+  bool _hasScrolledToTarget = false;
+
+  void _scrollToTarget() {
+    final targetOid = widget.targetOid;
+    if (targetOid == null) return;
+    final key = _sectionKeys[targetOid];
+    if (key?.currentContext == null) return;
+    Scrollable.ensureVisible(
+      key!.currentContext!,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      alignment: 0.1,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +89,11 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
       final state = ref.read(checklistNotifierProvider);
       if (state is ChecklistInitial) {
         ref.read(checklistNotifierProvider.notifier).loadChecklists();
+      } else if (state is ChecklistLoaded && !_hasScrolledToTarget) {
+        _hasScrolledToTarget = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _scrollToTarget();
+        });
       }
     });
   }
@@ -80,7 +102,7 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
   Widget build(BuildContext context) {
     final checklistState = ref.watch(checklistNotifierProvider);
 
-    // 에러 SnackBar
+    // 에러 SnackBar + 타겟 스크롤
     ref.listen<ChecklistState>(checklistNotifierProvider, (prev, next) {
       if (next is ChecklistError) {
         if (!mounted) return;
@@ -96,6 +118,12 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           ref.read(checklistNotifierProvider.notifier).clearError();
+        });
+      }
+      if (next is ChecklistLoaded && widget.targetOid != null && !_hasScrolledToTarget) {
+        _hasScrolledToTarget = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _scrollToTarget();
         });
       }
     });
@@ -235,40 +263,43 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _ChecklistSection(
-                    checklist: checklists[index],
-                    onAddItem: (content, dueDate) {
-                      ref.read(checklistNotifierProvider.notifier).addItem(
-                            checklists[index].oid,
-                            content,
-                            dueDate,
-                            checklists[index].items.length,
-                          );
-                    },
-                    onToggleItem: (itemOid, currentIsDone) {
-                      ref.read(checklistNotifierProvider.notifier).toggleItem(
-                            checklists[index].oid,
-                            itemOid,
-                            currentIsDone,
-                          );
-                    },
-                    onDeleteItem: (itemOid) {
-                      ref.read(checklistNotifierProvider.notifier).deleteItem(
-                            checklists[index].oid,
-                            itemOid,
-                          );
-                    },
-                    onDeleteChecklist: () {
-                      ref
-                          .read(checklistNotifierProvider.notifier)
-                          .deleteChecklist(checklists[index].oid);
-                    },
-                  ),
-                ),
-                childCount: checklists.length,
+              delegate: SliverChildListDelegate(
+                checklists.map((cl) {
+                  final key = _sectionKeys.putIfAbsent(cl.oid, () => GlobalKey());
+                  return Padding(
+                    key: key,
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _ChecklistSection(
+                      checklist: cl,
+                      onAddItem: (content, dueDate) {
+                        ref.read(checklistNotifierProvider.notifier).addItem(
+                              cl.oid,
+                              content,
+                              dueDate,
+                              cl.items.length,
+                            );
+                      },
+                      onToggleItem: (itemOid, currentIsDone) {
+                        ref.read(checklistNotifierProvider.notifier).toggleItem(
+                              cl.oid,
+                              itemOid,
+                              currentIsDone,
+                            );
+                      },
+                      onDeleteItem: (itemOid) {
+                        ref.read(checklistNotifierProvider.notifier).deleteItem(
+                              cl.oid,
+                              itemOid,
+                            );
+                      },
+                      onDeleteChecklist: () {
+                        ref
+                            .read(checklistNotifierProvider.notifier)
+                            .deleteChecklist(cl.oid);
+                      },
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           ),

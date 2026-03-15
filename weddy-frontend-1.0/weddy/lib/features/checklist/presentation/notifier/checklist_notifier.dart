@@ -236,17 +236,17 @@ final checklistNotifierProvider =
 });
 
 // ---------------------------------------------------------------------------
-// 홈 화면용 프리뷰 Provider (COUPLE_NOT_FOUND 등 404 허용)
+// 홈 화면용 체크리스트 제목 프리뷰 Provider (최대 3개)
 // ---------------------------------------------------------------------------
 
-/// 홈 화면에서 미완료 체크리스트 항목 최대 3개를 조회한다.
+/// 홈 화면에서 체크리스트 제목 최대 3개를 조회한다.
 /// 커플 미연결 상태(404)는 빈 리스트로 처리한다.
 final checklistPreviewProvider =
-    FutureProvider.autoDispose<List<ChecklistItemModel>>((ref) async {
+    FutureProvider.autoDispose<List<ChecklistModel>>((ref) async {
   final dio = ref.watch(dioClientProvider);
   try {
     final res = await dio.get(
-      '/checklists/home-preview',
+      '/checklists',
       options: Options(validateStatus: (s) => s != null && s < 500),
     );
     if (res.statusCode == 404) return [];
@@ -255,9 +255,10 @@ final checklistPreviewProvider =
       (d) => d as List<dynamic>,
     );
     if (!apiResp.success || apiResp.data == null) return [];
-    return apiResp.data!
-        .map((e) => ChecklistItemModel.fromJson(e as Map<String, dynamic>))
+    final all = apiResp.data!
+        .map((e) => ChecklistModel.fromJson(e as Map<String, dynamic>))
         .toList();
+    return all.length > 3 ? all.sublist(0, 3) : all;
   } catch (_) {
     return [];
   }

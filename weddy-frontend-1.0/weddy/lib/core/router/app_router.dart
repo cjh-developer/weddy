@@ -90,7 +90,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.checklist,
-        builder: (context, state) => const ChecklistScreen(),
+        builder: (context, state) {
+          final targetOid = state.uri.queryParameters['target'];
+          return ChecklistScreen(targetOid: targetOid);
+        },
       ),
     ],
     errorBuilder: (context, state) => const HomeScreen(),

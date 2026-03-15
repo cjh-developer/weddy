@@ -8,7 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:weddy/core/router/app_router.dart';
 import 'package:weddy/features/auth/domain/model/auth_state.dart';
 import 'package:weddy/features/auth/presentation/notifier/auth_notifier.dart';
-import 'package:weddy/features/checklist/data/model/checklist_item_model.dart';
+import 'package:weddy/features/checklist/data/model/checklist_model.dart';
 import 'package:weddy/features/checklist/presentation/notifier/checklist_notifier.dart';
 import 'package:weddy/features/couple/presentation/notifier/couple_notifier.dart';
 
@@ -81,31 +81,6 @@ String _dDayText(DateTime weddingDate) {
   return 'D+${diff.abs()}';
 }
 
-// ---------------------------------------------------------------------------
-// 체크리스트 D-DAY 유틸 (홈 화면용)
-// ---------------------------------------------------------------------------
-
-String _homeFormatDueDate(DateTime? dueDate) {
-  if (dueDate == null) return '';
-  final today = DateTime(
-      DateTime.now().year, DateTime.now().month, DateTime.now().day);
-  final due = DateTime(dueDate.year, dueDate.month, dueDate.day);
-  final diff = due.difference(today).inDays;
-  if (diff < 0) return 'D+${-diff}';
-  if (diff == 0) return 'D-DAY';
-  return 'D-$diff';
-}
-
-Color _homeDueDateColor(DateTime? dueDate) {
-  if (dueDate == null) return _kTextMute;
-  final today = DateTime(
-      DateTime.now().year, DateTime.now().month, DateTime.now().day);
-  final due = DateTime(dueDate.year, dueDate.month, dueDate.day);
-  final diff = due.difference(today).inDays;
-  if (diff < 0) return _kUrgent;
-  if (diff <= 7) return _kThisWeek;
-  return _kTextMute;
-}
 
 // ---------------------------------------------------------------------------
 // 타임라인 목업 데이터 모델
@@ -780,8 +755,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
           ),
-          data: (items) {
-            if (items.isEmpty) {
+          data: (checklists) {
+            if (checklists.isEmpty) {
               return GestureDetector(
                 onTap: () => context.push(AppRoutes.checklist),
                 child: Container(
@@ -812,10 +787,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 border: Border.all(color: _kGlassBorder),
               ),
               child: Column(
-                children: items.asMap().entries.map((e) {
-                  final isLast = e.key == items.length - 1;
-                  return _PreviewChecklistTile(
-                      item: e.value, isLast: isLast);
+                children: checklists.asMap().entries.map((e) {
+                  final isLast = e.key == checklists.length - 1;
+                  return _PreviewChecklistCard(
+                    checklist: e.value,
+                    isLast: isLast,
+                    onTap: () => context.push(
+                        '${AppRoutes.checklist}?target=${e.value.oid}'),
+                  );
                 }).toList(),
               ),
             );
@@ -925,7 +904,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildPopularSection(BuildContext context) {
     const posts = [
       _PopItem(
-        title: '청첩장 - 보지카드에서 했는데 대만족',
+        title: '청첩장 - ㅇㅇ카드에서 했는데 대만족',
         category: '업체추가',
         likes: 9,
         comments: 2,
@@ -1658,91 +1637,107 @@ class _PopularPostTile extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 홈 화면 체크리스트 프리뷰 타일 (API 데이터 기반)
+// 홈 화면 체크리스트 프리뷰 카드 (체크리스트 제목 기반)
 // ---------------------------------------------------------------------------
 
-class _PreviewChecklistTile extends StatelessWidget {
-  final ChecklistItemModel item;
+class _PreviewChecklistCard extends StatelessWidget {
+  final ChecklistModel checklist;
   final bool isLast;
+  final VoidCallback onTap;
 
-  const _PreviewChecklistTile({required this.item, required this.isLast});
+  const _PreviewChecklistCard({
+    required this.checklist,
+    required this.isLast,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final dueDateText = _homeFormatDueDate(item.dueDate);
-    final dueDateColor = _homeDueDateColor(item.dueDate);
+    final doneCount = checklist.items.where((i) => i.isDone).length;
+    final totalCount = checklist.items.length;
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              // 완료 여부 아이콘
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: item.isDone
-                      ? _kDone.withOpacity(0.15)
-                      : const Color(0x14FFFFFF),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: item.isDone ? _kDone : const Color(0x33FFFFFF),
-                    width: 1.5,
-                  ),
-                ),
-                child: item.isDone
-                    ? const Icon(Icons.check, color: _kDone, size: 13)
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              // 내용
-              Expanded(
-                child: Text(
-                  item.content,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: item.isDone ? _kTextSub : _kText,
-                    decoration:
-                        item.isDone ? TextDecoration.lineThrough : null,
-                    decorationColor: _kTextSub,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              // D-DAY 배지
-              if (dueDateText.isNotEmpty) ...[
-                const SizedBox(width: 8),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 3),
+                  width: 30,
+                  height: 30,
                   decoration: BoxDecoration(
-                    color: dueDateColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(6),
+                    color: const Color(0x33EC4899),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.checklist_rounded,
+                      color: _kPink, size: 15),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        checklist.title,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _kText,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (checklist.category != null) ...[
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0x1AEC4899),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            checklist.category!,
+                            style:
+                                const TextStyle(fontSize: 10, color: _kPink),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0x14FFFFFF),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    dueDateText,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: dueDateColor,
+                    '$doneCount/$totalCount',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _kTextSub,
                     ),
                   ),
                 ),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, color: _kTextMute, size: 16),
               ],
-            ],
+            ),
           ),
-        ),
-        if (!isLast)
-          Divider(
-            height: 1,
-            indent: 16,
-            endIndent: 16,
-            color: Colors.white.withOpacity(0.06),
-          ),
-      ],
+          if (!isLast)
+            Divider(
+              height: 1,
+              indent: 16,
+              endIndent: 16,
+              color: Colors.white.withOpacity(0.06),
+            ),
+        ],
+      ),
     );
   }
 }

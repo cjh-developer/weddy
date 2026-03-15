@@ -4,6 +4,84 @@
 
 ---
 
+## [4.1단계] 홈 체크리스트 섹션 개선 — 제목 표시 + 섹션 직접 이동 (2026-03-16)
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `lib/features/checklist/presentation/notifier/checklist_notifier.dart` | `checklistPreviewProvider` 반환 타입 `List<ChecklistItemModel>` → `List<ChecklistModel>`, 호출 엔드포인트 `/home-preview` → `/checklists` (3개 slicing) |
+| `lib/core/router/app_router.dart` | `/checklist` 라우트에 쿼리 파라미터(`?target=<oid>`) 지원 추가, `ChecklistScreen(targetOid:)` 전달 |
+| `lib/features/checklist/presentation/screen/checklist_screen.dart` | `targetOid` 파라미터 추가, `Map<String, GlobalKey> _sectionKeys` 로 섹션별 키 관리, `_scrollToTarget()` 구현, `SliverChildBuilderDelegate` → `SliverChildListDelegate` 교체 |
+| `lib/features/home/presentation/screen/home_screen.dart` | import 교체(`checklist_item_model` → `checklist_model`), `_PreviewChecklistTile` → `_PreviewChecklistCard` (제목·카테고리 배지·X/Y 진행률·화살표), 카드 탭 시 `?target=` 쿼리로 해당 섹션 직접 이동, 미사용 유틸 함수 제거 |
+
+### Added Patterns
+
+| 패턴 | 설명 |
+|------|------|
+| `Scrollable.ensureVisible` + `GlobalKey` | `SliverChildListDelegate`(eager build) 로 GlobalKey 즉시 등록 → `ref.listen` 에서 `ChecklistLoaded` 감지 시 `addPostFrameCallback` 으로 스크롤 예약, `_hasScrolledToTarget` 플래그로 최초 1회만 실행 |
+| GoRouter 쿼리 파라미터 | 화면 이동 시 `context.push('/path?key=value')`, 수신 측 `state.uri.queryParameters['key']` |
+
+---
+
+## [4단계] 체크리스트 CRUD API + Flutter 화면 (2026-03-15, 커밋 b0168fa)
+
+### Added — Backend
+
+| 파일 | 내용 |
+|------|------|
+| `domain/checklist/entity/Checklist.java` | 체크리스트 엔티티 (oid PK, couple_oid 인덱스, weddy_ 접두사) |
+| `domain/checklist/entity/ChecklistItem.java` | 체크리스트 항목 엔티티 (oid PK, checklist_oid 인덱스) |
+| `domain/checklist/repository/ChecklistRepository.java` | JPA Repository |
+| `domain/checklist/repository/ChecklistItemRepository.java` | JPA Repository |
+| `domain/checklist/service/ChecklistService.java` | 소유권 3단계 검증 (커플→체크리스트→항목) |
+| `domain/checklist/controller/ChecklistController.java` | 7개 엔드포인트 |
+
+**API 엔드포인트**
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/v1/checklists` | 전체 목록 + 항목 조회 |
+| POST | `/api/v1/checklists` | 체크리스트 생성 |
+| DELETE | `/api/v1/checklists/{oid}` | 삭제 (항목 포함) |
+| POST | `/api/v1/checklists/{oid}/items` | 항목 추가 |
+| PATCH | `/api/v1/checklists/{oid}/items/{itemOid}` | 항목 수정 (null=기존값 유지) |
+| DELETE | `/api/v1/checklists/{oid}/items/{itemOid}` | 항목 삭제 |
+| GET | `/api/v1/checklists/home-preview` | 미완료 항목 최신 3개 (홈 화면용) |
+
+**ErrorCode 추가**
+
+| 코드 | 의미 |
+|------|------|
+| CHECKLIST_001 | NOT_FOUND — 체크리스트 없음 또는 소유권 없음 |
+| CHECKLIST_002 | ITEM_NOT_FOUND — 항목 없음 또는 소유권 없음 |
+
+### Added — Frontend
+
+| 파일 | 내용 |
+|------|------|
+| `lib/features/checklist/data/model/checklist_item_model.dart` | ChecklistItemModel (dueDate .toLocal() KST 보정) |
+| `lib/features/checklist/data/model/checklist_model.dart` | ChecklistModel |
+| `lib/features/checklist/presentation/notifier/checklist_notifier.dart` | sealed state, 낙관적 토글, checklistPreviewProvider |
+| `lib/features/checklist/presentation/screen/checklist_screen.dart` | Dark Glass 테마, Accordion, Dismissible, 카테고리 생성 다이얼로그 |
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `lib/core/router/app_router.dart` | /checklist 라우트 추가 |
+| `lib/features/home/presentation/screen/home_screen.dart` | _buildChecklistSection 목업 → 실제 API 연동, 더보기 → context.push('/checklist') |
+
+### Fixed (lead-code-validator 검수 반영)
+
+| 버그 | 원인 | 해결 |
+|------|------|------|
+| updateItem() DB 중복 조회 | 소유권 검증 시 checklist를 DB에서 재조회 | 인메모리 checklistOid 비교로 대체 |
+| toggleItem() 에러 상태 경쟁 조건 | loadChecklists() 후 state 덮어씀 | 에러 메시지 먼저 저장 → loadChecklists() → state = ChecklistError 순서 보장 |
+| dueDate D-DAY 1일 오차 | DateTime.parse가 UTC로 파싱 | .toLocal() 추가로 KST 변환 |
+
+---
+
 ## [3.4단계] 보안 백로그 처리 (2026-03-15)
 
 ### Security — 6개 항목 처리 완료
