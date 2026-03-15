@@ -14,15 +14,19 @@
 <table>
   <tr>
     <td align="center"><b>로그인</b></td>
-    <td align="center"><b>홈 화면 — 파트너 연결</b></td>
-    <td align="center"><b>홈 화면 — 진행률 · 팁</b></td>
-    <td align="center"><b>홈 화면 — 인기글</b></td>
+    <td align="center"><b>회원가입</b></td>
+    <td align="center"><b>결혼 예정일 입력</b></td>
+    <td align="center"><b>홈 화면 — 파트너 연결 및 진행률</b></td>
+    <td align="center"><b>웨딩 타임라인</b></td>
+    <td align="center"><b>추천업체 및 인기글</b></td>
   </tr>
   <tr>
-    <td><img src="images/example_login.jpg" width="160"/></td>
-    <td><img src="images/example_after_login_sample1.png" width="160"/></td>
-    <td><img src="images/example_after_login_sample2.png" width="160"/></td>
-    <td><img src="images/example_after_login_sample3.png" width="160"/></td>
+    <td><img src="images/01_loginPage.jpg" width="160"/></td>
+    <td><img src="images/02_signPage.jpg" width="160"/></td>
+    <td><img src="images/03_SelectDataPage.jpg" width="160"/></td>
+    <td><img src="images/04_afterLoginPage1.jpg" width="160"/></td>
+    <td><img src="images/05_afterLoginPage2.jpg" width="160"/></td>
+    <td><img src="images/06_afterLoginPage3.jpg" width="160"/></td>
   </tr>
 </table>
 
