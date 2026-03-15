@@ -348,128 +348,173 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
   }
 
   // ── 체크리스트 추가 다이얼로그 ──────────────────────────────────────────
+  static const _kCategories = [
+    '예식장', '플래너', '스튜디오', '드레스', '메이크업',
+    '신혼여행', '예물', '혼수', '가전', '백화점', '상견례', '기타',
+  ];
+
   void _showAddChecklistDialog(BuildContext context) {
     final titleCtrl = TextEditingController();
-    final categoryCtrl = TextEditingController();
+    String? selectedCategory;
 
     showDialog<void>(
       context: context,
       barrierColor: Colors.black.withOpacity(0.65),
-      builder: (ctx) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-        child: Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0x33FFFFFF), width: 1),
-            ),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 헤더
-                Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: const BoxDecoration(
-                        color: Color(0x33EC4899),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.checklist_rounded,
-                          color: _kPink, size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '새 체크리스트',
-                      style: GoogleFonts.playfairDisplay(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: _kText,
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.of(ctx).pop(),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: _kGlass,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A2E),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0x33FFFFFF), width: 1),
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 헤더
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: const BoxDecoration(
+                          color: Color(0x33EC4899),
                           shape: BoxShape.circle,
-                          border: Border.all(
-                              color: _kGlassBorder, width: 1),
                         ),
-                        child: const Icon(Icons.close,
-                            color: _kTextSub, size: 15),
+                        child: const Icon(Icons.checklist_rounded,
+                            color: _kPink, size: 18),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                // 제목 입력
-                _buildDialogField(
-                  controller: titleCtrl,
-                  hint: '체크리스트 제목 (필수)',
-                  icon: Icons.title,
-                ),
-                const SizedBox(height: 12),
-                // 카테고리 입력
-                _buildDialogField(
-                  controller: categoryCtrl,
-                  hint: '카테고리 (선택, 예: 예식, 스드메, 여행)',
-                  icon: Icons.label_outline,
-                ),
-                const SizedBox(height: 20),
-                // 버튼
-                SizedBox(
-                  width: double.infinity,
-                  child: GestureDetector(
-                    onTap: () {
-                      final title = titleCtrl.text.trim();
-                      if (title.isEmpty) return;
-                      final category = categoryCtrl.text.trim();
-                      Navigator.of(ctx).pop();
-                      ref
-                          .read(checklistNotifierProvider.notifier)
-                          .createChecklist(
-                              title, category.isEmpty ? null : category);
-                    },
-                    child: Container(
-                      height: 52,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [_kPink, Color(0xFFF9A8D4)],
+                      const SizedBox(width: 12),
+                      Text(
+                        '새 체크리스트',
+                        style: GoogleFonts.playfairDisplay(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: _kText,
                         ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _kPink.withOpacity(0.40),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.of(ctx).pop(),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: _kGlass,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: _kGlassBorder, width: 1),
                           ),
-                        ],
+                          child: const Icon(Icons.close,
+                              color: _kTextSub, size: 15),
+                        ),
                       ),
-                      child: const Center(
-                        child: Text(
-                          '만들기',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // 제목 입력
+                  _buildDialogField(
+                    controller: titleCtrl,
+                    hint: '체크리스트 제목 (필수)',
+                    icon: Icons.title,
+                  ),
+                  const SizedBox(height: 16),
+                  // 카테고리 선택
+                  const Text(
+                    '카테고리 선택 (선택)',
+                    style: TextStyle(
+                        color: _kTextSub,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _kCategories.map((cat) {
+                      final isSelected = selectedCategory == cat;
+                      return GestureDetector(
+                        onTap: () => setDialogState(() {
+                          selectedCategory = isSelected ? null : cat;
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? _kPink
+                                : const Color(0x1AFFFFFF),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected
+                                  ? _kPink
+                                  : const Color(0x33FFFFFF),
+                            ),
+                          ),
+                          child: Text(
+                            cat,
+                            style: TextStyle(
+                              color:
+                                  isSelected ? Colors.white : _kTextSub,
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  // 버튼
+                  SizedBox(
+                    width: double.infinity,
+                    child: GestureDetector(
+                      onTap: () {
+                        final title = titleCtrl.text.trim();
+                        if (title.isEmpty) return;
+                        Navigator.of(ctx).pop();
+                        ref
+                            .read(checklistNotifierProvider.notifier)
+                            .createChecklist(title, selectedCategory);
+                      },
+                      child: Container(
+                        height: 52,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [_kPink, Color(0xFFF9A8D4)],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _kPink.withOpacity(0.40),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text(
+                            '만들기',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -477,7 +522,6 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
     ).then((_) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         titleCtrl.dispose();
-        categoryCtrl.dispose();
       });
     });
   }
