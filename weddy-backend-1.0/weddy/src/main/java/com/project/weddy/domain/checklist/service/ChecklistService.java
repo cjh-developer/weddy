@@ -23,8 +23,9 @@ import java.util.List;
 /**
  * 체크리스트 CRUD 서비스.
  *
- * <p>모든 쓰기 연산은 커플 소유권을 검증하여 IDOR 공격을 방지한다.
- * 커플에 연결되지 않은 사용자는 모든 체크리스트 연산에서 COUPLE_NOT_FOUND 예외를 받는다.
+ * <p>솔로 사용자도 체크리스트를 사용할 수 있다.
+ * 커플 연결 전에는 owner_oid = 사용자 OID, 커플 연결 후에는 owner_oid = 커플 OID로 동작한다.
+ * 모든 쓰기 연산은 소유권을 검증하여 IDOR 공격을 방지한다.
  */
 @Slf4j
 @Service
@@ -37,19 +38,27 @@ public class ChecklistService {
     private final CoupleRepository coupleRepository;
 
     /**
-     * 사용자 OID로 커플을 조회한다. 커플이 없으면 예외를 던진다.
+     * 사용자의 소유자 OID를 반환한다.
+     * 커플에 연결된 경우 커플 OID를, 솔로인 경우 사용자 OID를 반환한다.
+     *
+     * @param userOid 현재 사용자 OID
+     * @return 소유자 OID (커플 OID 또는 사용자 OID)
      */
-    private Couple getCoupleOrThrow(String userOid) {
+    private String getOwnerOid(String userOid) {
         return coupleRepository.findByGroomOidOrBrideOid(userOid, userOid)
-                .orElseThrow(() -> new CustomException(ErrorCode.COUPLE_NOT_FOUND));
+                .map(Couple::getOid)
+                .orElse(userOid);
     }
 
     /**
      * 체크리스트 소유권을 검증한다.
-     * 지정된 커플에 속하지 않는 체크리스트 접근 시 예외를 던진다.
+     * 지정된 소유자에 속하지 않는 체크리스트 접근 시 예외를 던진다.
+     *
+     * @param checklistOid 체크리스트 OID
+     * @param ownerOid     소유자 OID
      */
-    private void validateChecklistOwnership(String checklistOid, String coupleOid) {
-        if (!checklistRepository.existsByOidAndCoupleOid(checklistOid, coupleOid)) {
+    private void validateChecklistOwnership(String checklistOid, String ownerOid) {
+        if (!checklistRepository.existsByOidAndOwnerOid(checklistOid, ownerOid)) {
             throw new CustomException(ErrorCode.CHECKLIST_NOT_FOUND);
         }
     }
@@ -57,6 +66,9 @@ public class ChecklistService {
     /**
      * 항목 소유권을 검증한다.
      * 지정된 체크리스트에 속하지 않는 항목 접근 시 예외를 던진다.
+     *
+     * @param itemOid      항목 OID
+     * @param checklistOid 체크리스트 OID
      */
     private void validateItemOwnership(String itemOid, String checklistOid) {
         if (!checklistItemRepository.existsByOidAndChecklistOid(itemOid, checklistOid)) {
@@ -65,16 +77,15 @@ public class ChecklistService {
     }
 
     /**
-     * 커플의 전체 체크리스트 목록과 각 체크리스트의 항목을 조회한다.
+     * 소유자의 전체 체크리스트 목록과 각 체크리스트의 항목을 조회한다.
      *
      * @param userOid 현재 사용자 OID
      * @return 체크리스트 목록 (항목 포함)
      */
     @Transactional(readOnly = true)
     public List<ChecklistResponse> getChecklists(String userOid) {
-        Couple couple = getCoupleOrThrow(userOid);
-        List<Checklist> checklists =
-                checklistRepository.findByCoupleOidOrderByCreatedAtAsc(couple.getOid());
+        String ownerOid = getOwnerOid(userOid);
+        List<Checklist> checklists = checklistRepository.findByOwnerOidOrderByCreatedAtAsc(ownerOid);
         return checklists.stream().map(cl -> {
             List<ChecklistItem> items =
                     checklistItemRepository.findByChecklistOidOrderBySortOrderAscCreatedAtAsc(cl.getOid());
@@ -90,14 +101,14 @@ public class ChecklistService {
      * @return 생성된 체크리스트 응답
      */
     public ChecklistResponse createChecklist(String userOid, CreateChecklistRequest req) {
-        Couple couple = getCoupleOrThrow(userOid);
+        String ownerOid = getOwnerOid(userOid);
         Checklist checklist = Checklist.builder()
-                .coupleOid(couple.getOid())
+                .ownerOid(ownerOid)
                 .title(req.getTitle())
                 .category(req.getCategory())
                 .build();
         checklist = checklistRepository.save(checklist);
-        log.info("체크리스트 생성 - checklistOid: {}, coupleOid: {}", checklist.getOid(), couple.getOid());
+        log.info("체크리스트 생성 - checklistOid: {}, ownerOid: {}", checklist.getOid(), ownerOid);
         return ChecklistResponse.from(checklist, List.of());
     }
 
@@ -108,11 +119,11 @@ public class ChecklistService {
      * @param checklistOid 삭제할 체크리스트 OID
      */
     public void deleteChecklist(String userOid, String checklistOid) {
-        Couple couple = getCoupleOrThrow(userOid);
-        validateChecklistOwnership(checklistOid, couple.getOid());
+        String ownerOid = getOwnerOid(userOid);
+        validateChecklistOwnership(checklistOid, ownerOid);
         checklistItemRepository.deleteByChecklistOid(checklistOid);
         checklistRepository.deleteById(checklistOid);
-        log.info("체크리스트 삭제 - checklistOid: {}, coupleOid: {}", checklistOid, couple.getOid());
+        log.info("체크리스트 삭제 - checklistOid: {}, ownerOid: {}", checklistOid, ownerOid);
     }
 
     /**
@@ -125,8 +136,8 @@ public class ChecklistService {
      */
     public ChecklistItemResponse addItem(
             String userOid, String checklistOid, CreateChecklistItemRequest req) {
-        Couple couple = getCoupleOrThrow(userOid);
-        validateChecklistOwnership(checklistOid, couple.getOid());
+        String ownerOid = getOwnerOid(userOid);
+        validateChecklistOwnership(checklistOid, ownerOid);
         ChecklistItem item = ChecklistItem.builder()
                 .checklistOid(checklistOid)
                 .content(req.getContent())
@@ -151,8 +162,8 @@ public class ChecklistService {
      */
     public ChecklistItemResponse updateItem(
             String userOid, String checklistOid, String itemOid, UpdateChecklistItemRequest req) {
-        Couple couple = getCoupleOrThrow(userOid);
-        validateChecklistOwnership(checklistOid, couple.getOid());
+        String ownerOid = getOwnerOid(userOid);
+        validateChecklistOwnership(checklistOid, ownerOid);
         ChecklistItem item = checklistItemRepository.findById(itemOid)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHECKLIST_ITEM_NOT_FOUND));
         // 추가 DB 조회 없이 인메모리에서 소유권 확인
@@ -171,8 +182,8 @@ public class ChecklistService {
      * @param itemOid      삭제할 항목 OID
      */
     public void deleteItem(String userOid, String checklistOid, String itemOid) {
-        Couple couple = getCoupleOrThrow(userOid);
-        validateChecklistOwnership(checklistOid, couple.getOid());
+        String ownerOid = getOwnerOid(userOid);
+        validateChecklistOwnership(checklistOid, ownerOid);
         validateItemOwnership(itemOid, checklistOid);
         checklistItemRepository.deleteById(itemOid);
         log.info("체크리스트 항목 삭제 - itemOid: {}, checklistOid: {}", itemOid, checklistOid);
@@ -188,8 +199,8 @@ public class ChecklistService {
      */
     @Transactional(readOnly = true)
     public List<ChecklistItemResponse> getHomePreview(String userOid, int limit) {
-        Couple couple = getCoupleOrThrow(userOid);
-        return checklistItemRepository.findRecentUndoneItems(couple.getOid(), limit)
+        String ownerOid = getOwnerOid(userOid);
+        return checklistItemRepository.findRecentUndoneItems(ownerOid, limit)
                 .stream().map(ChecklistItemResponse::from).toList();
     }
 }

@@ -122,7 +122,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private void createChecklists() {
         Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM weddy_checklists WHERE couple_oid = ?",
+                "SELECT COUNT(*) FROM weddy_checklists WHERE owner_oid = ?",
                 Integer.class, "20000000000001");
         if (count != null && count > 0) {
             log.debug("[DataInitializer] 체크리스트 데이터 이미 존재, 건너뜀.");
@@ -155,7 +155,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private void insertChecklist(String oid, String title, String category) {
         jdbc.update("""
-                INSERT INTO weddy_checklists (oid, couple_oid, title, category)
+                INSERT INTO weddy_checklists (oid, owner_oid, title, category)
                 VALUES (?, ?, ?, ?)
                 """, oid, "20000000000001", title, category);
     }

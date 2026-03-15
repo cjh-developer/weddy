@@ -66,12 +66,12 @@ CREATE TABLE weddy_couples (
 -- ============================================================
 CREATE TABLE weddy_checklists (
     oid        VARCHAR(14)  NOT NULL               COMMENT 'SecureRandom 14자리 숫자 PK',
-    couple_oid VARCHAR(14)  NOT NULL               COMMENT '커플 OID',
+    owner_oid  VARCHAR(14)  NOT NULL               COMMENT '소유자 OID (솔로: 사용자 OID, 커플: 커플 OID)',
     title      VARCHAR(100) NOT NULL               COMMENT '체크리스트 제목',
     category   VARCHAR(50)  NULL                   COMMENT '카테고리 (HALL, BEAUTY, HONEYMOON 등)',
     created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (oid),
-    INDEX idx_couple (couple_oid)
+    INDEX idx_owner (owner_oid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='체크리스트';
 
 -- ============================================================

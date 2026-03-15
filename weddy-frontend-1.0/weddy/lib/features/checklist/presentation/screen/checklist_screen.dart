@@ -221,10 +221,6 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
       );
     }
 
-    if (checklistState is ChecklistNotConnected) {
-      return _buildNotConnectedState();
-    }
-
     if (checklistState is ChecklistLoaded) {
       final checklists = checklistState.checklists;
       if (checklists.isEmpty) {
@@ -279,41 +275,6 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
     // ChecklistInitial — 로딩 중 스피너
     return const Center(
       child: CircularProgressIndicator(color: _kPink),
-    );
-  }
-
-  // ── 커플 미연결 상태 ─────────────────────────────────────────────────────
-  Widget _buildNotConnectedState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: _kGlass,
-              shape: BoxShape.circle,
-              border: Border.all(color: _kGlassBorder, width: 1.5),
-            ),
-            child: const Icon(Icons.link_off_rounded, color: _kPink, size: 36),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '파트너 연결이 필요합니다',
-            style: GoogleFonts.playfairDisplay(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: _kText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '홈 화면에서 파트너와 연결 후 이용해주세요',
-            style: TextStyle(fontSize: 13, color: _kTextSub),
-          ),
-        ],
-      ),
     );
   }
 
@@ -510,8 +471,10 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
         ),
       ),
     ).then((_) {
-      titleCtrl.dispose();
-      categoryCtrl.dispose();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        titleCtrl.dispose();
+        categoryCtrl.dispose();
+      });
     });
   }
 

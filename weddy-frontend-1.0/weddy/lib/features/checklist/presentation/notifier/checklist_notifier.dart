@@ -33,11 +33,6 @@ final class ChecklistError extends ChecklistState {
   const ChecklistError(this.message);
 }
 
-/// 커플 미연결 상태 — 체크리스트를 사용하려면 먼저 파트너와 연결해야 한다.
-final class ChecklistNotConnected extends ChecklistState {
-  const ChecklistNotConnected();
-}
-
 // ---------------------------------------------------------------------------
 // ChecklistNotifier
 // ---------------------------------------------------------------------------
@@ -58,7 +53,7 @@ class ChecklistNotifier extends StateNotifier<ChecklistState> {
       );
       if (!mounted) return;
       if (res.statusCode == 404) {
-        state = const ChecklistNotConnected();
+        state = const ChecklistLoaded([]);
         return;
       }
       final apiResp = ApiResponse<List<dynamic>>.fromJson(

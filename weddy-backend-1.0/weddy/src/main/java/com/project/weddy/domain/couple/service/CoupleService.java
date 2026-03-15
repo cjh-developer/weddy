@@ -2,6 +2,7 @@ package com.project.weddy.domain.couple.service;
 
 import com.project.weddy.common.exception.CustomException;
 import com.project.weddy.common.exception.ErrorCode;
+import com.project.weddy.domain.checklist.repository.ChecklistRepository;
 import com.project.weddy.domain.couple.dto.response.CoupleResponse;
 import com.project.weddy.domain.couple.entity.Couple;
 import com.project.weddy.domain.couple.repository.CoupleRepository;
@@ -28,6 +29,7 @@ public class CoupleService {
     private final CoupleRepository coupleRepository;
     private final UserRepository userRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final ChecklistRepository checklistRepository;
 
     /**
      * 파트너 초대코드를 입력하여 커플을 연결한다.
@@ -102,6 +104,10 @@ public class CoupleService {
 
         couple = coupleRepository.save(couple);
 
+        // 솔로 체크리스트를 커플 소유로 마이그레이션
+        checklistRepository.migrateOwnerOid(groomOid, couple.getOid());
+        checklistRepository.migrateOwnerOid(brideOid, couple.getOid());
+
         log.info("커플 연결 완료 - coupleOid: {}, groomOid: {}, brideOid: {}",
                 couple.getOid(), groomOid, brideOid);
 
@@ -134,11 +140,11 @@ public class CoupleService {
         jdbcTemplate.update(
                 "DELETE ci FROM weddy_checklist_items ci " +
                 "INNER JOIN weddy_checklists c ON ci.checklist_oid = c.oid " +
-                "WHERE c.couple_oid = ?",
+                "WHERE c.owner_oid = ?",
                 coupleOid);
 
         // 2. 체크리스트 (부모)
-        jdbcTemplate.update("DELETE FROM weddy_checklists WHERE couple_oid = ?", coupleOid);
+        jdbcTemplate.update("DELETE FROM weddy_checklists WHERE owner_oid = ?", coupleOid);
 
         // 3. 예산 항목 (자식)
         jdbcTemplate.update(

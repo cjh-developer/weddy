@@ -19,7 +19,8 @@ import java.time.LocalDateTime;
  * weddy_checklists 테이블과 1:1 매핑된다.
  *
  * <p>PK(oid)는 @PrePersist에서 OidGenerator로 자동 생성된다.
- * couple_oid는 weddy_couples.oid를 참조하되 FK 제약 없이 INDEX만 부여한다.
+ * owner_oid는 솔로 상태일 때 사용자 OID, 커플 연결 후에는 커플 OID를 가진다.
+ * FK 제약 없이 INDEX만 부여한다.
  */
 @Entity
 @Table(name = "weddy_checklists")
@@ -33,8 +34,8 @@ public class Checklist {
     @Column(name = "oid", length = 14, nullable = false, updatable = false)
     private String oid;
 
-    @Column(name = "couple_oid", length = 14, nullable = false)
-    private String coupleOid;
+    @Column(name = "owner_oid", length = 14, nullable = false)
+    private String ownerOid;
 
     @Column(name = "title", length = 100, nullable = false)
     private String title;
