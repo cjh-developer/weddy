@@ -83,6 +83,7 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
     // 에러 SnackBar
     ref.listen<ChecklistState>(checklistNotifierProvider, (prev, next) {
       if (next is ChecklistError) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.message),
@@ -92,7 +93,10 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
                 borderRadius: BorderRadius.circular(12)),
           ),
         );
-        ref.read(checklistNotifierProvider.notifier).clearError();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(checklistNotifierProvider.notifier).clearError();
+        });
       }
     });
 
@@ -486,17 +490,16 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
     return Container(
       height: 52,
       decoration: BoxDecoration(
-        color: const Color(0x14FFFFFF),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0x33FFFFFF), width: 1),
+        border: Border.all(color: const Color(0xFFDDDDDD), width: 1),
       ),
       child: TextField(
         controller: controller,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: const TextStyle(color: Colors.black87, fontSize: 14),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle:
-              TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 13),
+          hintStyle: const TextStyle(color: Colors.black38, fontSize: 13),
           prefixIcon: Icon(icon, color: _kPink, size: 18),
           border: InputBorder.none,
           contentPadding:
@@ -674,23 +677,23 @@ class _ChecklistSectionState extends State<_ChecklistSection> {
                         child: Container(
                           height: 40,
                           decoration: BoxDecoration(
-                            color: const Color(0x0AFFFFFF),
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(10),
                             border:
-                                Border.all(color: const Color(0x1AFFFFFF)),
+                                Border.all(color: const Color(0xFFDDDDDD)),
                           ),
                           child: TextField(
                             controller: _addContentCtrl,
                             style: const TextStyle(
-                                color: Colors.white, fontSize: 13),
-                            decoration: InputDecoration(
+                                color: Colors.black87, fontSize: 13),
+                            decoration: const InputDecoration(
                               hintText: '새 항목 추가...',
                               hintStyle: TextStyle(
-                                color: Colors.white.withOpacity(0.30),
+                                color: Colors.black38,
                                 fontSize: 12,
                               ),
                               border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
+                              contentPadding: EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 10),
                             ),
                             onSubmitted: (v) => _submitItem(),
