@@ -33,6 +33,11 @@ final class ChecklistError extends ChecklistState {
   const ChecklistError(this.message);
 }
 
+/// 커플 미연결 상태 — 체크리스트를 사용하려면 먼저 파트너와 연결해야 한다.
+final class ChecklistNotConnected extends ChecklistState {
+  const ChecklistNotConnected();
+}
+
 // ---------------------------------------------------------------------------
 // ChecklistNotifier
 // ---------------------------------------------------------------------------
@@ -43,11 +48,19 @@ class ChecklistNotifier extends StateNotifier<ChecklistState> {
   ChecklistNotifier(this._dio) : super(const ChecklistInitial());
 
   /// 체크리스트 전체 목록을 서버에서 불러온다.
+  /// 커플 미연결(404) 시 빈 목록으로 처리한다.
   Future<void> loadChecklists() async {
     state = const ChecklistLoading();
     try {
-      final res = await _dio.get('/checklists');
+      final res = await _dio.get(
+        '/checklists',
+        options: Options(validateStatus: (s) => s != null && s < 500),
+      );
       if (!mounted) return;
+      if (res.statusCode == 404) {
+        state = const ChecklistNotConnected();
+        return;
+      }
       final apiResp = ApiResponse<List<dynamic>>.fromJson(
         res.data as Map<String, dynamic>,
         (d) => d as List<dynamic>,
@@ -164,7 +177,10 @@ class ChecklistNotifier extends StateNotifier<ChecklistState> {
       );
       // 서버 동기화 (조용히)
       if (!mounted) return;
-      final res = await _dio.get('/checklists');
+      final res = await _dio.get(
+        '/checklists',
+        options: Options(validateStatus: (s) => s != null && s < 500),
+      );
       if (!mounted) return;
       final apiResp = ApiResponse<List<dynamic>>.fromJson(
         res.data as Map<String, dynamic>,
