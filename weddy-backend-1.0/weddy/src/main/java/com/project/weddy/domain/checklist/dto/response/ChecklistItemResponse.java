@@ -1,5 +1,6 @@
 package com.project.weddy.domain.checklist.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.project.weddy.domain.checklist.entity.ChecklistItem;
 import lombok.Builder;
 import lombok.Getter;
@@ -17,6 +18,7 @@ public class ChecklistItemResponse {
     private String oid;
     private String checklistOid;
     private String content;
+    @JsonProperty("isDone")
     private boolean isDone;
     private LocalDate dueDate;
     private int sortOrder;
