@@ -128,6 +128,27 @@
   - _MenuItemTile: StatefulWidget (press 애니메이션)
   - _HomePinkButton: StatefulWidget (hover/press 효과)
 
+## Checklist Feature (implemented — 4단계)
+### BE
+- domain/checklist/entity: Checklist.java, ChecklistItem.java
+- domain/checklist/repository: ChecklistRepository, ChecklistItemRepository
+- domain/checklist/dto/request: CreateChecklistRequest, CreateChecklistItemRequest, UpdateChecklistItemRequest
+- domain/checklist/dto/response: ChecklistResponse, ChecklistItemResponse
+- domain/checklist/service: ChecklistService (COUPLE_NOT_FOUND guard, IDOR validation)
+- domain/checklist/controller: ChecklistController (/api/v1/checklists)
+- ErrorCode: CHECKLIST_NOT_FOUND("CHECKLIST_001"), CHECKLIST_ITEM_NOT_FOUND("CHECKLIST_002")
+- ChecklistItemRepository.findRecentUndoneItems: JPQL LIMIT (Spring Data JPA 3.x 지원)
+### FE
+- lib/features/checklist/data/model: ChecklistModel, ChecklistItemModel
+- lib/features/checklist/presentation/notifier/checklist_notifier.dart
+  - sealed ChecklistState (Initial/Loading/Loaded/Error)
+  - toggleItem: 낙관적 업데이트 후 서버 동기화
+  - checklistPreviewProvider: FutureProvider.autoDispose, 404→빈 리스트
+- lib/features/checklist/presentation/screen/checklist_screen.dart
+  - Dark Glass 테마, Dismissible 스와이프 삭제, AnimatedCrossFade 펼침/접기
+- AppRoutes.checklist = '/checklist' 추가
+- home_screen.dart: _buildChecklistSection → checklistPreviewProvider 연동
+
 ## Auth Key Patterns
 - DioException handling: check e.error is ApiException first, then ApiException.fromDioException(e)
 - login/signup both call getMyInfo() after to build full UserModel for AuthAuthenticated

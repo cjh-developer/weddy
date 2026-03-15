@@ -28,6 +28,10 @@ public enum ErrorCode {
     INVALID_INVITE_CODE("COUPLE_003", "유효하지 않은 초대 코드입니다.", HttpStatus.BAD_REQUEST),
     INVALID_COUPLE_ROLE("COUPLE_004", "같은 역할(신랑/신부)끼리는 연결할 수 없습니다.", HttpStatus.BAD_REQUEST),
 
+    // 체크리스트
+    CHECKLIST_NOT_FOUND("CHECKLIST_001", "체크리스트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    CHECKLIST_ITEM_NOT_FOUND("CHECKLIST_002", "체크리스트 항목을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
     // 공통
     VALIDATION_FAILED("COMMON_001", "입력값 검증에 실패했습니다.", HttpStatus.BAD_REQUEST),
     RATE_LIMIT_EXCEEDED("COMMON_429", "요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),

@@ -3,8 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:go_router/go_router.dart';
+
+import 'package:weddy/core/router/app_router.dart';
 import 'package:weddy/features/auth/domain/model/auth_state.dart';
 import 'package:weddy/features/auth/presentation/notifier/auth_notifier.dart';
+import 'package:weddy/features/checklist/data/model/checklist_item_model.dart';
+import 'package:weddy/features/checklist/presentation/notifier/checklist_notifier.dart';
 import 'package:weddy/features/couple/presentation/notifier/couple_notifier.dart';
 
 // ---------------------------------------------------------------------------
@@ -77,30 +82,30 @@ String _dDayText(DateTime weddingDate) {
 }
 
 // ---------------------------------------------------------------------------
-// 체크리스트 목업 데이터 모델
+// 체크리스트 D-DAY 유틸 (홈 화면용)
 // ---------------------------------------------------------------------------
 
-class _CheckItem {
-  final String title;
-  final String category;
-  final bool done;
-  final String deadline;
-  final Color categoryColor;
-  const _CheckItem({
-    required this.title,
-    required this.category,
-    required this.done,
-    required this.deadline,
-    required this.categoryColor,
-  });
+String _homeFormatDueDate(DateTime? dueDate) {
+  if (dueDate == null) return '';
+  final today = DateTime(
+      DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  final due = DateTime(dueDate.year, dueDate.month, dueDate.day);
+  final diff = due.difference(today).inDays;
+  if (diff < 0) return 'D+${-diff}';
+  if (diff == 0) return 'D-DAY';
+  return 'D-$diff';
 }
 
-const _kCheckItems = [
-  _CheckItem(title: '예식장 계약 및 날짜 확정',       category: '예식',   done: true,  deadline: '완료',     categoryColor: _kDone),
-  _CheckItem(title: '스튜디오·드레스·메이크업 계약',   category: '스드메', done: false, deadline: '3개월 전', categoryColor: _kIconStore),
-  _CheckItem(title: '청첩장 디자인 및 제작',           category: '청첩장', done: false, deadline: '2개월 전', categoryColor: _kIconGuest),
-  _CheckItem(title: '신혼여행 항공·숙소 예약',         category: '여행',   done: false, deadline: '3개월 전', categoryColor: _kIconHome),
-];
+Color _homeDueDateColor(DateTime? dueDate) {
+  if (dueDate == null) return _kTextMute;
+  final today = DateTime(
+      DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  final due = DateTime(dueDate.year, dueDate.month, dueDate.day);
+  final diff = due.difference(today).inDays;
+  if (diff < 0) return _kUrgent;
+  if (diff <= 7) return _kThisWeek;
+  return _kTextMute;
+}
 
 // ---------------------------------------------------------------------------
 // 타임라인 목업 데이터 모델
@@ -711,8 +716,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── 웨딩 체크리스트 섹션 ──────────────────────────────────────────────────
+  // ── 웨딩 체크리스트 섹션 (API 연동) ─────────────────────────────────────
   Widget _buildChecklistSection(BuildContext context) {
+    final previewAsync = ref.watch(checklistPreviewProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -734,7 +741,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
             GestureDetector(
-              onTap: () => _showComingSoon(context),
+              onTap: () => context.push(AppRoutes.checklist),
               child: const Text(
                 '더보기 >',
                 style: TextStyle(fontSize: 12, color: _kTextSub),
@@ -743,18 +750,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: _kGlass,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _kGlassBorder),
+        previewAsync.when(
+          loading: () => Container(
+            height: 80,
+            decoration: BoxDecoration(
+              color: _kGlass,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _kGlassBorder),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(color: _kPink, strokeWidth: 2),
+            ),
           ),
-          child: Column(
-            children: _kCheckItems.asMap().entries.map((e) {
-              final isLast = e.key == _kCheckItems.length - 1;
-              return _ChecklistTile(item: e.value, isLast: isLast);
-            }).toList(),
+          error: (_, __) => Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _kGlass,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _kGlassBorder),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: _kTextMute, size: 16),
+                SizedBox(width: 8),
+                Text(
+                  '체크리스트를 불러올 수 없습니다.',
+                  style: TextStyle(fontSize: 12, color: _kTextSub),
+                ),
+              ],
+            ),
           ),
+          data: (items) {
+            if (items.isEmpty) {
+              return GestureDetector(
+                onTap: () => context.push(AppRoutes.checklist),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _kGlass,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _kGlassBorder),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.add_circle_outline,
+                          color: _kPink, size: 18),
+                      SizedBox(width: 10),
+                      Text(
+                        '체크리스트를 만들어 결혼 준비를 시작해보세요',
+                        style: TextStyle(fontSize: 12, color: _kTextSub),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            return Container(
+              decoration: BoxDecoration(
+                color: _kGlass,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _kGlassBorder),
+              ),
+              child: Column(
+                children: items.asMap().entries.map((e) {
+                  final isLast = e.key == items.length - 1;
+                  return _PreviewChecklistTile(
+                      item: e.value, isLast: isLast);
+                }).toList(),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -1593,84 +1658,80 @@ class _PopularPostTile extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 체크리스트 타일
+// 홈 화면 체크리스트 프리뷰 타일 (API 데이터 기반)
 // ---------------------------------------------------------------------------
 
-class _ChecklistTile extends StatelessWidget {
-  final _CheckItem item;
+class _PreviewChecklistTile extends StatelessWidget {
+  final ChecklistItemModel item;
   final bool isLast;
 
-  const _ChecklistTile({required this.item, required this.isLast});
+  const _PreviewChecklistTile({required this.item, required this.isLast});
 
   @override
   Widget build(BuildContext context) {
+    final dueDateText = _homeFormatDueDate(item.dueDate);
+    final dueDateColor = _homeDueDateColor(item.dueDate);
+
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              // 체크박스 아이콘
+              // 완료 여부 아이콘
               Container(
                 width: 22,
                 height: 22,
                 decoration: BoxDecoration(
-                  color: item.done
+                  color: item.isDone
                       ? _kDone.withOpacity(0.15)
                       : const Color(0x14FFFFFF),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: item.done ? _kDone : const Color(0x33FFFFFF),
+                    color: item.isDone ? _kDone : const Color(0x33FFFFFF),
                     width: 1.5,
                   ),
                 ),
-                child: item.done
+                child: item.isDone
                     ? const Icon(Icons.check, color: _kDone, size: 13)
                     : null,
               ),
               const SizedBox(width: 12),
-              // 제목
+              // 내용
               Expanded(
                 child: Text(
-                  item.title,
+                  item.content,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: item.done ? _kTextSub : _kText,
+                    color: item.isDone ? _kTextSub : _kText,
                     decoration:
-                        item.done ? TextDecoration.lineThrough : null,
+                        item.isDone ? TextDecoration.lineThrough : null,
                     decorationColor: _kTextSub,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
-              // 카테고리 배지
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: item.categoryColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  item.category,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: item.categoryColor,
+              // D-DAY 배지
+              if (dueDateText.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: dueDateColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    dueDateText,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: dueDateColor,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              // 마감
-              Text(
-                item.deadline,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: item.done ? _kDone : _kTextMute,
-                ),
-              ),
+              ],
             ],
           ),
         ),

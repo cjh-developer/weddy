@@ -200,3 +200,35 @@
   전략 B: .gitignore에 추가 + CI에서 환경변수로 파일 생성 (민감 정보 있을 때)
 - .env.example은 assets에 포함하지 않음 (실제 로드 대상이 아님)
 - dotenv.load() → WidgetsFlutterBinding.ensureInitialized() 다음, runApp() 이전 순서 필수
+
+### [PATTERN] Spring Data JPA deleteByX() @Modifying/@Transactional 생략 가능 조건
+- SimpleJpaRepository에 @Transactional이 기본 적용되어 있으므로 deleteByXxx()는 별도 어노테이션 없이 동작
+- 단, 상위 @Transactional이 이미 있는 Service에서 호출 시 동일 트랜잭션에 참여하므로 정상
+- deleteById()와 deleteByXxx()가 같은 트랜잭션 내에서 순서대로 실행되므로 자식 → 부모 순서 삭제가 정상
+
+### [PATTERN] Spring Data JPA 3.x JPQL LIMIT 절 지원 (Spring Boot 3.2.x)
+- Spring Data JPA 3.x (Hibernate 6.x) 부터 JPQL에서 LIMIT :param 절이 공식 지원됨
+- Spring Boot 3.2.3 = Hibernate 6.4.x → LIMIT :limit 파라미터 바인딩 정상 동작
+- NULLS LAST도 JPQL에서 Hibernate 6.x부터 공식 지원
+- 단, 이전 버전(Spring Boot 2.x, Hibernate 5.x)에서는 Pageable 또는 네이티브 쿼리 사용해야 함
+
+### [CRITICAL] ChecklistService.updateItem() — findById + validateItemOwnership 중복 DB 조회
+- findById()로 엔티티를 조회한 직후 validateItemOwnership()(existsByOidAndChecklistOid())을 추가 호출
+- 동일한 oid에 대해 EXISTS 쿼리가 중복 실행됨 (불필요한 DB 조회)
+- 해결: findById 결과의 item.checklistOid == checklistOid 비교로 인메모리 검증으로 대체
+
+### [PATTERN] FE toggleItem() 낙관적 업데이트 후 서버 동기화 시 오류 상태 + loadChecklists() 경쟁 조건
+- toggleItem DioException 블록에서 loadChecklists() 호출 후 즉시 ChecklistError state로 덮어쓰기
+- loadChecklists()가 비동기이므로 에러 표시 후 상태가 ChecklistLoaded로 전환됨 → SnackBar와 목록 갱신 타이밍 불일치
+- 해결: loadChecklists() 완료 후 에러 상태 설정, 또는 에러 상태 설정 후 loadChecklists()
+
+### [PATTERN] ChecklistItemModel.dueDate: DateTime? vs LocalDate 불일치
+- 서버 응답 dueDate는 "yyyy-MM-dd" 형식 (DATE 컬럼)
+- FE에서 DateTime.parse("2024-03-15") 는 "2024-03-15T00:00:00.000" 으로 파싱됨 (UTC 기준)
+- 화면 표시 시 로컬 타임존이 다를 경우 날짜가 하루 밀릴 수 있음
+- 해결: DateTime.parse 후 .toLocal() 호출, 또는 날짜만 사용하는 경우 time component 무시
+
+### [PATTERN] /checklist 라우트 인증 가드 — redirect 로직 포괄적용 확인
+- app_router.dart redirect: AuthUnauthenticated → AppRoutes.login 반환 → /checklist 포함 모든 경로 보호됨
+- 별도 checklist 전용 가드 불필요 (글로벌 redirect가 올바르게 처리)
+- initState에서 ChecklistInitial 체크 후 loadChecklists() 호출 패턴이 올바른 지연 로딩 패턴임

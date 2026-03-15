@@ -6,6 +6,7 @@ import 'package:weddy/features/auth/domain/model/auth_state.dart';
 import 'package:weddy/features/auth/presentation/notifier/auth_notifier.dart';
 import 'package:weddy/features/auth/presentation/screen/login_screen.dart';
 import 'package:weddy/features/auth/presentation/screen/sign_up_screen.dart';
+import 'package:weddy/features/checklist/presentation/screen/checklist_screen.dart';
 import 'package:weddy/features/home/presentation/screen/home_screen.dart';
 import 'package:weddy/features/wedding_setup/presentation/screen/wedding_date_setup_screen.dart';
 
@@ -18,6 +19,7 @@ abstract final class AppRoutes {
   static const String login = '/login';
   static const String signUp = '/signup';
   static const String weddingDateSetup = '/setup/wedding-date';
+  static const String checklist = '/checklist';
 }
 
 // ---------------------------------------------------------------------------
@@ -85,6 +87,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.weddingDateSetup,
         builder: (context, state) => const WeddingDateSetupScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.checklist,
+        builder: (context, state) => const ChecklistScreen(),
       ),
     ],
     errorBuilder: (context, state) => const HomeScreen(),

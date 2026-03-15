@@ -4,6 +4,40 @@
 
 ---
 
+## [3.4단계] 보안 백로그 처리 (2026-03-15)
+
+### Security — 6개 항목 처리 완료
+
+| 항목 | 우선순위 | 내용 |
+|------|----------|------|
+| CoupleResponse IDOR 선제 차단 | MEDIUM | groomOid / brideOid 응답 필드 제거 (BE + FE couple_model.dart 동시 수정) |
+| handPhone @Pattern 검증 | MEDIUM | `^01[016789]-?\d{3,4}-?\d{4}$` 패턴 추가 (유효하지 않은 번호 400 반환) |
+| disconnectCouple 연관 삭제 순서 | MEDIUM | checklist_items → checklists → budget_items → budgets → couple_favorites → couples 순서 보장 |
+| Swagger 운영 비활성화 | MEDIUM | `application.yml` 기본 `springdoc.api-docs.enabled: false`, `application-dev.yml`에서만 `true` |
+| 로그인 성공 로그 마스킹 | LOW | `maskUserId()` 헬퍼: 앞 3자리 + `***` (예: `gro***`) |
+| JWT_SECRET 폴백 제거 | 추가 | `${JWT_SECRET}` 환경변수 필수화, CORS allowed-origins 동일 처리 |
+
+### Changed
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `domain/user/dto/request/SignUpRequest.java` | handPhone `@Pattern(regexp = "^01[016789]-?\\d{3,4}-?\\d{4}$")` 추가 |
+| `domain/couple/dto/response/CoupleResponse.java` | groomOid, brideOid 필드 제거 |
+| `domain/couple/service/CoupleService.java` | disconnectCouple() 연관 삭제 순서 명시 + maskUserId() 헬퍼 추가 |
+| `domain/user/service/UserService.java` | 로그인 성공 로그 maskUserId() 적용 |
+| `resources/application.yml` | springdoc 비활성화 기본값, JWT_SECRET 폴백 제거, CORS_ALLOWED_ORIGINS 필수화 |
+| `resources/application-dev.yml` | springdoc.api-docs.enabled: true 추가 |
+| `lib/features/couple/data/model/couple_model.dart` | groomOid, brideOid 필드 제거 |
+
+### 잔여 보안 백로그
+
+| 항목 | 우선순위 | 비고 |
+|------|----------|------|
+| CoupleService 역할 검증 (GROOM+GROOM 방지) | MEDIUM | 4단계 전 처리 필요 |
+| jwt.expiration 30분 단축 | LOW | 클라이언트 토큰 갱신 로직 영향도 검토 필요 |
+
+---
+
 ## [3.3단계] 다크 글래스모피즘 UI 전면 개편 (2026-03-15)
 
 ### Frontend — 디자인 시스템 전환: Light Glass → Dark Glassmorphism
