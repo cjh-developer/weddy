@@ -10,6 +10,7 @@ import com.project.weddy.domain.user.entity.UserRole;
 import com.project.weddy.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class CoupleService {
 
     private final CoupleRepository coupleRepository;
     private final UserRepository userRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     /**
      * 파트너 초대코드를 입력하여 커플을 연결한다.
@@ -102,15 +104,54 @@ public class CoupleService {
     }
 
     /**
-     * 커플 연결을 해제한다.
+     * 커플 연결을 해제하고 연관 데이터를 모두 삭제한다.
+     *
+     * <p>FK 제약이 없으므로 자식 테이블을 먼저 삭제한 뒤 부모 테이블을 삭제한다.
+     * 삭제 순서:
+     * <ol>
+     *   <li>weddy_checklist_items (체크리스트 항목)</li>
+     *   <li>weddy_checklists (체크리스트)</li>
+     *   <li>weddy_budget_items (예산 항목)</li>
+     *   <li>weddy_budgets (예산)</li>
+     *   <li>weddy_couple_favorites (즐겨찾기)</li>
+     *   <li>weddy_couples (커플 레코드)</li>
+     * </ol>
      *
      * @param userOid 현재 사용자 OID
      */
     public void disconnectCouple(String userOid) {
         Couple couple = coupleRepository.findByGroomOidOrBrideOid(userOid, userOid)
                 .orElseThrow(() -> new CustomException(ErrorCode.COUPLE_NOT_FOUND));
+
+        String coupleOid = couple.getOid();
+
+        // 1. 체크리스트 항목 (자식)
+        jdbcTemplate.update(
+                "DELETE ci FROM weddy_checklist_items ci " +
+                "INNER JOIN weddy_checklists c ON ci.checklist_oid = c.oid " +
+                "WHERE c.couple_oid = ?",
+                coupleOid);
+
+        // 2. 체크리스트 (부모)
+        jdbcTemplate.update("DELETE FROM weddy_checklists WHERE couple_oid = ?", coupleOid);
+
+        // 3. 예산 항목 (자식)
+        jdbcTemplate.update(
+                "DELETE bi FROM weddy_budget_items bi " +
+                "INNER JOIN weddy_budgets b ON bi.budget_oid = b.oid " +
+                "WHERE b.couple_oid = ?",
+                coupleOid);
+
+        // 4. 예산 (부모)
+        jdbcTemplate.update("DELETE FROM weddy_budgets WHERE couple_oid = ?", coupleOid);
+
+        // 5. 즐겨찾기
+        jdbcTemplate.update("DELETE FROM weddy_couple_favorites WHERE couple_oid = ?", coupleOid);
+
+        // 6. 커플 레코드
         coupleRepository.delete(couple);
-        log.info("커플 연결 해제 완료 - coupleOid: {}, userOid: {}", couple.getOid(), userOid);
+
+        log.info("커플 연결 해제 완료 - coupleOid: {}, userOid: {}", coupleOid, userOid);
     }
 
     /**

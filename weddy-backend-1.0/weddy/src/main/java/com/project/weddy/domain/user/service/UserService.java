@@ -103,7 +103,7 @@ public class UserService {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
 
-        log.info("로그인 성공 - userId: {}, userOid: {}", user.getUserId(), user.getOid());
+        log.info("로그인 성공 - userId: {}, userOid: {}", maskUserId(user.getUserId()), user.getOid());
 
         // 토큰 발급 및 리프레시 토큰 upsert
         return issueTokensAndSaveRefreshToken(user);
@@ -223,6 +223,23 @@ public class UserService {
                 .name(user.getName())
                 .role(user.getRole() != null ? user.getRole().name() : null)
                 .build();
+    }
+
+    /**
+     * 로그 출력용 userId 마스킹 헬퍼.
+     * 앞 3자리를 유지하고 나머지를 '*'로 치환하여 로그 분석 시 가독성을 유지하면서
+     * 개인정보 직접 노출을 방지한다.
+     *
+     * <p>예시: "testuser" → "tes*****"
+     *
+     * @param userId 원본 userId
+     * @return 마스킹된 userId
+     */
+    private String maskUserId(String userId) {
+        if (userId == null || userId.length() <= 3) {
+            return "***";
+        }
+        return userId.substring(0, 3) + "*".repeat(userId.length() - 3);
     }
 
     /**

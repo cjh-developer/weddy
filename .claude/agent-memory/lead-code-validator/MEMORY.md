@@ -157,13 +157,17 @@
 - UserRole.BRIDE 체크 없이 else 처리 → partner 역할 검증 미완
 - 해결: partner 역할이 me와 다른지 반드시 검증
 
-### [IMPORTANT] CoupleModel.brideOid non-nullable이나 서버는 nullable 반환 가능
-- 서버 getMyCouple()에서 CoupleResponse.brideOid = couple.getBrideOid() (nullable)
-- Flutter CoupleModel.brideOid는 required String → JSON에 brideOid:null 오면 런타임 Null cast 크래시
+### [RESOLVED] CoupleModel.brideOid non-nullable 문제
+- CoupleModel.brideOid가 String?으로 수정 완료됨 (현재 세션에서 확인)
+- brideName도 String?으로 선언되어 nullable 처리 정상
 
-### [IMPORTANT] connectCouple() catch 블록에 generic catch 누락
-- on DioException 처리 후 일반 catch(e) 없음 → 파싱 에러 등 비DioException 예외 시 state가 CoupleLoading으로 고착
-- loadMyCouple()은 catch(_) 있으나 connectCouple()은 누락
+### [RESOLVED] connectCouple() catch 블록 누락
+- connectCouple()에 catch(e) 블록이 추가되어 완전한 예외 처리 확인됨
+
+### [CONFIRMED] CoupleService 역할 배정 로직 버그 미수정 (현재 세션)
+- GROOM+GROOM, BRIDE+BRIDE 조합 방어 없이 else 처리 유지 중
+- partner 역할이 me와 반대인지 검증하는 코드 여전히 없음
+- 후속 단계에서 반드시 수정 필요
 
 ### [PATTERN] autoDispose Provider + ref.read() 조합 주의
 - coupleNotifierProvider가 autoDispose인데 화면 전환 후 다시 진입하면 새 인스턴스 생성
@@ -172,6 +176,22 @@
 ### [PATTERN] application.yml DB 자격증명 하드코딩 잔존
 - application.yml에 username:weddy, password:weddy01 평문 저장 확인됨
 - dev 환경이라도 application-dev.yml로 분리하거나 ${DB_PASSWORD:weddy01} 환경변수 패턴 사용 권고
+
+### [PATTERN] disconnectCouple JdbcTemplate JOIN DELETE — MySQL 전용 문법
+- "DELETE ci FROM weddy_checklist_items ci INNER JOIN weddy_checklists c ON ..." 문법은 MySQL/MariaDB 전용
+- 다른 DB 엔진(H2, PostgreSQL)에서는 동작 불가 → 테스트 환경이 H2이면 반드시 별도 쿼리로 분리 필요
+- 이 프로젝트는 MySQL 고정이므로 현재 문법은 허용되나 주석으로 명시 필요
+- @Transactional(class-level)이 있으므로 6단계 삭제가 단일 트랜잭션으로 묶임 → 정상
+
+### [PATTERN] handPhone @Pattern과 DB schema 컬럼 길이 일치 확인 필요
+- SignUpRequest @Pattern: ^01[016789]-?\d{3,4}-?\d{4}$ → 최대 13자 (010-1234-5678 포맷)
+- schema.sql hand_phone VARCHAR(20) → 충분 (문제 없음)
+- 하이픈 포함 여부에 따라 실제 저장 값 형태가 혼재될 수 있음 → 저장 전 정규화(하이픈 제거) 권고
+
+### [PATTERN] springdoc 비활성화 시 SecurityConfig permitAll 정리 필요
+- /v3/api-docs/**, /swagger-ui/** 등 SpringDoc 경로를 permitAll로 열어두는 SecurityConfig 패턴
+- springdoc 비활성화 후에도 해당 경로가 permitAll이면 불필요한 공격 표면이 열려 있음
+- 프로파일 분기 또는 조건부 SecurityFilterChain 등록으로 개발 환경에서만 허용 필요
 
 ### Flutter flutter_dotenv 패턴 (확정)
 - .env, .env.production 을 pubspec.yaml assets에 등록 → 파일이 반드시 존재해야 빌드 성공

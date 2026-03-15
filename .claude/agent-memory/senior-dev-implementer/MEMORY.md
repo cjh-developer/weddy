@@ -44,6 +44,11 @@
 - CORS: cors.allowed-origins 설정 기반, 와일드카드 제거
 - Rate Limiting: bucket4j-core:8.10.1, caffeine:3.1.8, RateLimitFilter @Order(1)
 - ErrorCode: RATE_LIMIT_EXCEEDED("COMMON_429") 추가
+- IDOR 차단: CoupleResponse에서 groomOid/brideOid 제거 (coupleOid만 유지)
+- SignUpRequest handPhone @Pattern: ^01[016789]-?\\d{3,4}-?\\d{4}$
+- Swagger 비활성화: application.yml springdoc.api-docs.enabled=false (dev yml에서만 true)
+- disconnectCouple: 연관 데이터 JdbcTemplate 직접 삭제 (체크리스트→항목, 예산→항목, 즐겨찾기 순)
+- 로그인 로그 마스킹: maskUserId() — 앞 3자리 + * repeat
 
 ### JWT Config
 - jwt.secret / jwt.expiration=86400000 / jwt.refresh-expiration=604800000
