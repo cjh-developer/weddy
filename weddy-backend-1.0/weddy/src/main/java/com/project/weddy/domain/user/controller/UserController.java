@@ -1,14 +1,18 @@
 package com.project.weddy.domain.user.controller;
 
 import com.project.weddy.common.response.ApiResponse;
+import com.project.weddy.domain.user.dto.request.UpdateWeddingDateRequest;
 import com.project.weddy.domain.user.dto.response.UserResponse;
 import com.project.weddy.domain.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,5 +41,14 @@ public class UserController {
     public ApiResponse<UserResponse> getMyInfo(@AuthenticationPrincipal String userOid) {
         UserResponse userResponse = userService.getMyInfo(userOid);
         return ApiResponse.success(userResponse);
+    }
+
+    @Operation(summary = "결혼 예정일 설정", description = "사용자 개인 결혼 예정일 저장 또는 수정")
+    @PatchMapping("/me/wedding-date")
+    public ApiResponse<UserResponse> updateWeddingDate(
+            @AuthenticationPrincipal String userOid,
+            @RequestBody @Valid UpdateWeddingDateRequest request) {
+        UserResponse response = userService.updateWeddingDate(userOid, request.getWeddingDate());
+        return ApiResponse.success("결혼 예정일이 설정되었습니다.", response);
     }
 }

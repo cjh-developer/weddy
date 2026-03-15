@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,17 +11,20 @@ import 'package:weddy/features/auth/domain/model/auth_state.dart';
 import 'package:weddy/features/auth/presentation/notifier/auth_notifier.dart';
 
 // ---------------------------------------------------------------------------
-// Color Constants
+// Color Constants — Dark Glassmorphism
 // ---------------------------------------------------------------------------
 
 const _kPink = Color(0xFFEC4899);
 const _kDarkPink = Color(0xFFDB2777);
-const _kLightPink = Color(0xFFFCE7F3);
-const _kBg = Color(0xFFFDF2F8);
-const _kBorder = Color(0xFFE5E7EB);
-// 회원가입 버튼 (연한 검은색 계열)
-const _kDark = Color(0xFF374151);
-const _kDarkHover = Color(0xFF1F2937);
+const _kBgDark1 = Color(0xFF0D0D1A);
+const _kBgDark2 = Color(0xFF1B0929);
+// Glass layers
+const _kGlass = Color(0x0FFFFFFF);          // white 6%
+const _kGlassBorder = Color(0x38FFFFFF);    // white 22%
+const _kInputFill = Color(0xFF1E1B33);
+const _kInputFillFocus = Color(0xFF2A2550);
+// Text
+const _kTextMute = Color(0x66FFFFFF); // white 40%
 
 // ---------------------------------------------------------------------------
 // SignUpScreen
@@ -55,7 +60,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   Future<void> _handleSignUp() async {
     setState(() => _roleError = _selectedRole == null);
-    if (!(_formKey.currentState?.validate() ?? false) || _selectedRole == null) return;
+    if (!(_formKey.currentState?.validate() ?? false) || _selectedRole == null) {
+      return;
+    }
 
     final request = SignUpRequest(
       userId: _userIdController.text.trim(),
@@ -82,9 +89,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 Text('회원가입이 완료되었습니다. 로그인해 주세요.'),
               ],
             ),
-            backgroundColor: _kDark,
+            backgroundColor: const Color(0xFF2A2A3E),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
         context.go(AppRoutes.login);
@@ -96,7 +104,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             content: Text(next.message),
             backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
         ref.read(authNotifierProvider.notifier).clearError();
@@ -107,260 +116,347 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     final isLoading = authState is AuthLoading;
 
     return Scaffold(
-      backgroundColor: _kBg,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.07),
-                      blurRadius: 32,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.fromLTRB(36, 40, 36, 32),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ── 로고 영역 ──────────────────────────────────────
-                      Center(
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 76,
-                              height: 76,
-                              decoration: BoxDecoration(
-                                color: _kPink,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: _kPink.withOpacity(0.38),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  const Icon(Icons.favorite, color: Colors.white, size: 38),
-                                  Icon(Icons.favorite, color: _kLightPink, size: 28),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'WEDDY',
-                              style: GoogleFonts.playfairDisplay(
-                                fontSize: 42,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.black87,
-                                letterSpacing: 5,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              '당신의 완벽한 결혼 준비 파트너',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: Colors.grey[500],
-                                letterSpacing: 0.3,
-                              ),
+      backgroundColor: _kBgDark1,
+      body: Stack(
+        children: [
+          // ── 배경 그라디언트 ──────────────────────────────────────
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [_kBgDark1, _kBgDark2],
+              ),
+            ),
+          ),
+          // ── 배경 글로우 오브 ─────────────────────────────────────
+          Positioned(
+            top: -60,
+            left: -80,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _kPink.withOpacity(0.07),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -80,
+            right: -60,
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _kDarkPink.withOpacity(0.06),
+              ),
+            ),
+          ),
+          // ── 콘텐츠 ───────────────────────────────────────────────
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: _kGlass,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: _kGlassBorder, width: 1.2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _kPink.withOpacity(0.12),
+                              blurRadius: 32,
+                              spreadRadius: 0,
+                              offset: const Offset(0, 8),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // ── 아이디 ─────────────────────────────────────────
-                      _AnimatedField(
-                        controller: _userIdController,
-                        enabled: !isLoading,
-                        hintText: '아이디',
-                        prefixIcon: Icons.person_outline,
-                        textInputAction: TextInputAction.next,
-                        keyboardType: TextInputType.text,
-                        autofillHints: const [AutofillHints.newUsername],
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return '아이디를 입력해주세요.';
-                          if (v.trim().length < 4) return '4자 이상 입력해주세요.';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      // ── 비밀번호 ───────────────────────────────────────
-                      _AnimatedField(
-                        controller: _passwordController,
-                        enabled: !isLoading,
-                        hintText: '비밀번호',
-                        prefixIcon: Icons.lock_outline,
-                        obscureText: _obscurePassword,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const [AutofillHints.newPassword],
-                        suffixIcon: _VisibilityButton(
-                          obscure: _obscurePassword,
-                          onToggle: () =>
-                              setState(() => _obscurePassword = !_obscurePassword),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return '비밀번호를 입력해주세요.';
-                          if (v.length < 8) return '8자 이상 입력해주세요.';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      // ── 이름 ───────────────────────────────────────────
-                      _AnimatedField(
-                        controller: _nameController,
-                        enabled: !isLoading,
-                        hintText: '이름',
-                        prefixIcon: Icons.badge_outlined,
-                        textInputAction: TextInputAction.next,
-                        keyboardType: TextInputType.name,
-                        autofillHints: const [AutofillHints.name],
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return '이름을 입력해주세요.';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      // ── 휴대폰 번호 ────────────────────────────────────
-                      _AnimatedField(
-                        controller: _handPhoneController,
-                        enabled: !isLoading,
-                        hintText: "휴대폰 번호 ('-' 없이 입력)",
-                        prefixIcon: Icons.phone_outlined,
-                        textInputAction: TextInputAction.next,
-                        keyboardType: TextInputType.phone,
-                        autofillHints: const [AutofillHints.telephoneNumber],
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return '휴대폰 번호를 입력해주세요.';
-                          final d = v.replaceAll(RegExp(r'\D'), '');
-                          if (d.length < 10 || d.length > 11) return '올바른 번호를 입력해주세요.';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      // ── 이메일 ─────────────────────────────────────────
-                      _AnimatedField(
-                        controller: _emailController,
-                        enabled: !isLoading,
-                        hintText: '이메일',
-                        prefixIcon: Icons.email_outlined,
-                        textInputAction: TextInputAction.done,
-                        keyboardType: TextInputType.emailAddress,
-                        autofillHints: const [AutofillHints.email],
-                        onFieldSubmitted: _handleSignUp,
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return '이메일을 입력해주세요.';
-                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v)) {
-                            return '올바른 이메일 형식을 입력해주세요.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 20),
-
-                      // ── 역할 선택 ──────────────────────────────────────
-                      _RoleSelector(
-                        selectedRole: _selectedRole,
-                        isDisabled: isLoading,
-                        hasError: _roleError,
-                        onSelect: (role) => setState(() {
-                          _selectedRole = role;
-                          _roleError = false;
-                        }),
-                      ),
-                      const SizedBox(height: 28),
-
-                      // ── 회원가입 버튼 (연한 검은색) ─────────────────────
-                      _DarkButton(
-                        label: '회원가입',
-                        isLoading: isLoading,
-                        onPressed: _handleSignUp,
-                      ),
-                      const SizedBox(height: 14),
-
-                      // ── 로그인 링크 ────────────────────────────────────
-                      Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '이미 계정이 있으신가요?',
-                              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-                            ),
-                            const SizedBox(width: 5),
-                            MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: GestureDetector(
-                                onTap: isLoading ? null : () => context.go(AppRoutes.login),
-                                child: Text(
-                                  '로그인',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: isLoading ? Colors.grey[400] : _kPink,
-                                  ),
+                        padding: const EdgeInsets.fromLTRB(36, 40, 36, 32),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // ── 로고 영역 ────────────────────────────
+                              Center(
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 76,
+                                      height: 76,
+                                      decoration: BoxDecoration(
+                                        color: _kPink,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: _kPink.withOpacity(0.45),
+                                            blurRadius: 24,
+                                            offset: const Offset(0, 6),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          const Icon(Icons.favorite,
+                                              color: Colors.white, size: 38),
+                                          Icon(Icons.favorite,
+                                              color:
+                                                  Colors.white.withOpacity(0.35),
+                                              size: 28),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'WEDDY',
+                                      style: GoogleFonts.playfairDisplay(
+                                        fontSize: 42,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                        letterSpacing: 5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      '당신의 완벽한 결혼 준비 파트너',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: Colors.white.withOpacity(0.50),
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 32),
+
+                              // ── 아이디 ──────────────────────────────
+                              _AnimatedField(
+                                controller: _userIdController,
+                                enabled: !isLoading,
+                                hintText: '아이디',
+                                prefixIcon: Icons.person_outline,
+                                textInputAction: TextInputAction.next,
+                                keyboardType: TextInputType.text,
+                                autofillHints: const [
+                                  AutofillHints.newUsername
+                                ],
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty) {
+                                    return '아이디를 입력해주세요.';
+                                  }
+                                  if (v.trim().length < 4) {
+                                    return '4자 이상 입력해주세요.';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 12),
+
+                              // ── 비밀번호 ────────────────────────────
+                              _AnimatedField(
+                                controller: _passwordController,
+                                enabled: !isLoading,
+                                hintText: '비밀번호',
+                                prefixIcon: Icons.lock_outline,
+                                obscureText: _obscurePassword,
+                                textInputAction: TextInputAction.next,
+                                autofillHints: const [
+                                  AutofillHints.newPassword
+                                ],
+                                suffixIcon: _VisibilityButton(
+                                  obscure: _obscurePassword,
+                                  onToggle: () => setState(() =>
+                                      _obscurePassword = !_obscurePassword),
+                                ),
+                                validator: (v) {
+                                  if (v == null || v.isEmpty) {
+                                    return '비밀번호를 입력해주세요.';
+                                  }
+                                  if (v.length < 8) {
+                                    return '8자 이상 입력해주세요.';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 12),
+
+                              // ── 이름 ────────────────────────────────
+                              _AnimatedField(
+                                controller: _nameController,
+                                enabled: !isLoading,
+                                hintText: '이름',
+                                prefixIcon: Icons.badge_outlined,
+                                textInputAction: TextInputAction.next,
+                                keyboardType: TextInputType.name,
+                                autofillHints: const [AutofillHints.name],
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty) {
+                                    return '이름을 입력해주세요.';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 12),
+
+                              // ── 휴대폰 번호 ──────────────────────────
+                              _AnimatedField(
+                                controller: _handPhoneController,
+                                enabled: !isLoading,
+                                hintText: "휴대폰 번호 ('-' 없이 입력)",
+                                prefixIcon: Icons.phone_outlined,
+                                textInputAction: TextInputAction.next,
+                                keyboardType: TextInputType.phone,
+                                autofillHints: const [
+                                  AutofillHints.telephoneNumber
+                                ],
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty) {
+                                    return '휴대폰 번호를 입력해주세요.';
+                                  }
+                                  final d = v.replaceAll(RegExp(r'\D'), '');
+                                  if (d.length < 10 || d.length > 11) {
+                                    return '올바른 번호를 입력해주세요.';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 12),
+
+                              // ── 이메일 ──────────────────────────────
+                              _AnimatedField(
+                                controller: _emailController,
+                                enabled: !isLoading,
+                                hintText: '이메일',
+                                prefixIcon: Icons.email_outlined,
+                                textInputAction: TextInputAction.done,
+                                keyboardType: TextInputType.emailAddress,
+                                autofillHints: const [AutofillHints.email],
+                                onFieldSubmitted: _handleSignUp,
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty) {
+                                    return '이메일을 입력해주세요.';
+                                  }
+                                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
+                                      .hasMatch(v)) {
+                                    return '올바른 이메일 형식을 입력해주세요.';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 20),
+
+                              // ── 역할 선택 ────────────────────────────
+                              _RoleSelector(
+                                selectedRole: _selectedRole,
+                                isDisabled: isLoading,
+                                hasError: _roleError,
+                                onSelect: (role) => setState(() {
+                                  _selectedRole = role;
+                                  _roleError = false;
+                                }),
+                              ),
+                              const SizedBox(height: 28),
+
+                              // ── 회원가입 버튼 ────────────────────────
+                              _DarkGlassButton(
+                                label: '회원가입',
+                                isLoading: isLoading,
+                                onPressed: _handleSignUp,
+                              ),
+                              const SizedBox(height: 14),
+
+                              // ── 로그인 링크 ──────────────────────────
+                              Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '이미 계정이 있으신가요?',
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.white.withOpacity(0.60)),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    MouseRegion(
+                                      cursor: SystemMouseCursors.click,
+                                      child: GestureDetector(
+                                        onTap: isLoading
+                                            ? null
+                                            : () =>
+                                                context.go(AppRoutes.login),
+                                        child: Text(
+                                          '로그인',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: isLoading
+                                                ? _kTextMute
+                                                : _kPink,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // ── 푸터 ───────────────────────────────
+                              Column(
+                                children: [
+                                  TextButton(
+                                    onPressed: () {},
+                                    style: TextButton.styleFrom(
+                                      foregroundColor:
+                                          Colors.white.withOpacity(0.30),
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Text(
+                                      '이용약관',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '© 2025 CJH. All rights reserved.',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.white.withOpacity(0.30)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 24),
-
-                      // ── 푸터 ──────────────────────────────────────────
-                      Column(
-                        children: [
-                          TextButton(
-                            onPressed: () {},
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.grey[400],
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text(
-                              '이용약관',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '© 2025 CJH. All rights reserved.',
-                            style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// _AnimatedField — FocusNode 기반 포커스 애니메이션
+// _AnimatedField — FocusNode 기반 포커스 애니메이션 (다크 글래스)
 // ---------------------------------------------------------------------------
 
 class _AnimatedField extends StatefulWidget {
@@ -428,19 +524,13 @@ class _AnimatedFieldState extends State<_AnimatedField> {
           boxShadow: _focused
               ? [
                   BoxShadow(
-                    color: _kPink.withOpacity(0.20),
-                    blurRadius: 12,
+                    color: _kPink.withOpacity(0.25),
+                    blurRadius: 14,
                     spreadRadius: 0,
                     offset: const Offset(0, 3),
                   ),
                 ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
+              : [],
         ),
         child: TextFormField(
           controller: widget.controller,
@@ -450,39 +540,47 @@ class _AnimatedFieldState extends State<_AnimatedField> {
           textInputAction: widget.textInputAction,
           keyboardType: widget.keyboardType,
           autofillHints: widget.autofillHints,
-          style: const TextStyle(fontSize: 14),
+          style: const TextStyle(fontSize: 14, color: Colors.white),
           decoration: InputDecoration(
             hintText: widget.hintText,
-            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+            hintStyle: TextStyle(
+                color: Colors.white.withOpacity(0.40), fontSize: 14),
             prefixIcon: Icon(
               widget.prefixIcon,
-              color: _focused ? _kPink : Colors.grey[400],
+              color:
+                  _focused ? _kPink : Colors.white.withOpacity(0.50),
               size: 20,
             ),
             suffixIcon: widget.suffixIcon,
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: _kBorder),
+              borderSide:
+                  BorderSide(color: Colors.white.withOpacity(0.20)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: _kPink, width: 1.5),
+              borderSide: const BorderSide(
+                  color: Color(0x80EC4899), width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: Color(0xFFEF4444)),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.red, width: 1.5),
+              borderSide: const BorderSide(
+                  color: Color(0xFFEF4444), width: 1.5),
             ),
             filled: true,
-            fillColor: _focused ? Colors.white : const Color(0xFFFAFAFA),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            fillColor: _focused ? _kInputFillFocus : _kInputFill,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
           validator: widget.validator,
           onFieldSubmitted:
-              widget.onFieldSubmitted != null ? (_) => widget.onFieldSubmitted!() : null,
+              widget.onFieldSubmitted != null
+                  ? (_) => widget.onFieldSubmitted!()
+                  : null,
         ),
       ),
     );
@@ -515,8 +613,10 @@ class _VisibilityButtonState extends State<_VisibilityButton> {
       cursor: SystemMouseCursors.click,
       child: IconButton(
         icon: Icon(
-          widget.obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-          color: _hovered ? _kDarkPink : Colors.grey[400],
+          widget.obscure
+              ? Icons.visibility_outlined
+              : Icons.visibility_off_outlined,
+          color: _hovered ? _kPink : Colors.white.withOpacity(0.50),
           size: 20,
         ),
         onPressed: widget.onToggle,
@@ -549,7 +649,7 @@ class _RoleSelector extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Colors.grey[700],
+            color: Colors.white.withOpacity(0.70),
           ),
         ),
         const SizedBox(height: 8),
@@ -581,7 +681,8 @@ class _RoleSelector extends StatelessWidget {
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Text(
               '역할을 선택해주세요.',
-              style: TextStyle(fontSize: 12, color: Colors.red[700]),
+              style: TextStyle(
+                  fontSize: 12, color: Colors.red[400]),
             ),
           ),
       ],
@@ -589,7 +690,7 @@ class _RoleSelector extends StatelessWidget {
   }
 }
 
-/// 소형 가로 역할 칩 (핑크 선택 색상, hover + press 효과).
+/// 소형 가로 역할 칩 — 다크 글래스 스타일.
 class _RoleChip extends StatefulWidget {
   final String label;
   final String emoji;
@@ -617,15 +718,15 @@ class _RoleChipState extends State<_RoleChip> {
   Widget build(BuildContext context) {
     final isSelected = widget.isSelected;
     final bgColor = isSelected
-        ? _kLightPink
+        ? const Color(0x33EC4899) // 핑크 20%
         : _hovered
-            ? const Color(0xFFFDF2F8)
-            : Colors.white;
+            ? const Color(0x1FFFFFFF) // white 12%
+            : const Color(0x14FFFFFF); // white 8%
     final borderColor = isSelected
         ? _kPink
         : _hovered
-            ? const Color(0xFFF9A8D4)
-            : _kBorder;
+            ? Colors.white.withOpacity(0.35)
+            : Colors.white.withOpacity(0.20);
 
     return MouseRegion(
       onEnter: (_) {
@@ -635,7 +736,8 @@ class _RoleChipState extends State<_RoleChip> {
         _hovered = false;
         _pressed = false;
       }),
-      cursor: widget.isDisabled ? SystemMouseCursors.forbidden : SystemMouseCursors.click,
+      cursor:
+          widget.isDisabled ? SystemMouseCursors.forbidden : SystemMouseCursors.click,
       child: GestureDetector(
         onTapDown: (_) {
           if (!widget.isDisabled) setState(() => _pressed = true);
@@ -659,9 +761,9 @@ class _RoleChipState extends State<_RoleChip> {
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: _kPink.withOpacity(0.15),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
+                        color: _kPink.withOpacity(0.30),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
                       ),
                     ]
                   : null,
@@ -679,8 +781,11 @@ class _RoleChipState extends State<_RoleChip> {
                   widget.label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? _kDarkPink : Colors.grey[600],
+                    fontWeight:
+                        isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected
+                        ? _kPink
+                        : Colors.white.withOpacity(0.50),
                   ),
                 ),
               ],
@@ -692,23 +797,23 @@ class _RoleChipState extends State<_RoleChip> {
   }
 }
 
-/// 회원가입 버튼 — 연한 검은색(다크 그레이) 솔리드 버튼.
-class _DarkButton extends StatefulWidget {
+/// 회원가입 버튼 — 다크 글래스 스타일.
+class _DarkGlassButton extends StatefulWidget {
   final String label;
   final bool isLoading;
   final VoidCallback onPressed;
 
-  const _DarkButton({
+  const _DarkGlassButton({
     required this.label,
     required this.isLoading,
     required this.onPressed,
   });
 
   @override
-  State<_DarkButton> createState() => _DarkButtonState();
+  State<_DarkGlassButton> createState() => _DarkGlassButtonState();
 }
 
-class _DarkButtonState extends State<_DarkButton> {
+class _DarkGlassButtonState extends State<_DarkGlassButton> {
   bool _hovered = false;
   bool _pressed = false;
 
@@ -722,7 +827,8 @@ class _DarkButtonState extends State<_DarkButton> {
         _hovered = false;
         _pressed = false;
       }),
-      cursor: widget.isLoading ? SystemMouseCursors.forbidden : SystemMouseCursors.click,
+      cursor:
+          widget.isLoading ? SystemMouseCursors.forbidden : SystemMouseCursors.click,
       child: GestureDetector(
         onTapDown: (_) {
           if (!widget.isLoading) setState(() => _pressed = true);
@@ -739,17 +845,22 @@ class _DarkButtonState extends State<_DarkButton> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               color: widget.isLoading
-                  ? Colors.grey[400]
+                  ? Colors.white.withOpacity(0.08)
                   : _hovered
-                      ? _kDarkHover
-                      : _kDark,
+                      ? Colors.white.withOpacity(0.18)
+                      : Colors.white.withOpacity(0.12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.25),
+                width: 1,
+              ),
               boxShadow: widget.isLoading
                   ? null
                   : [
                       BoxShadow(
-                        color: Colors.black.withOpacity(_pressed ? 0.10 : 0.18),
-                        blurRadius: _pressed ? 4 : 10,
-                        offset: Offset(0, _pressed ? 1 : 3),
+                        color: Colors.black
+                            .withOpacity(_pressed ? 0.12 : 0.22),
+                        blurRadius: _pressed ? 4 : 12,
+                        offset: Offset(0, _pressed ? 1 : 4),
                       ),
                     ],
             ),

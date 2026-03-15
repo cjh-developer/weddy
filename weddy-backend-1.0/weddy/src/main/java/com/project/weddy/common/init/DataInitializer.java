@@ -64,11 +64,11 @@ public class DataInitializer implements CommandLineRunner {
 
     private void createUsers() {
         createUserIfAbsent("10000000000001", "groom_kim", "1234",
-                "김지훈", "010-1234-5678", "jh.kim@weddy.com", UserRole.GROOM, "INVITE-GROOM-01");
+                "김지훈", "010-1234-5678", "jh.kim@weddy.com", UserRole.GROOM, "WED-GRM001");
         createUserIfAbsent("10000000000002", "bride_lee", "1234",
-                "이수연", "010-9876-5432", "sy.lee@weddy.com", UserRole.BRIDE, "INVITE-BRIDE-01");
+                "이수연", "010-9876-5432", "sy.lee@weddy.com", UserRole.BRIDE, "WED-BRD001");
         createUserIfAbsent("10000000000003", "solo_park", "1234",
-                "박민지", "010-5555-7777", "mj.park@weddy.com", UserRole.BRIDE, "INVITE-SOLO-01");
+                "박민지", "010-5555-7777", "mj.park@weddy.com", UserRole.BRIDE, "WED-SLO001");
     }
 
     private void createUserIfAbsent(String oid, String userId, String rawPassword,

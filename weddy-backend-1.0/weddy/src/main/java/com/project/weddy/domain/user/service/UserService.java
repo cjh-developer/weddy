@@ -18,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -166,6 +167,20 @@ public class UserService {
     public UserResponse getMyInfo(String userOid) {
         User user = userRepository.findById(userOid)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        return UserResponse.from(user);
+    }
+
+    /**
+     * 결혼 예정일 업데이트.
+     *
+     * @param userOid     JWT에서 추출한 사용자 OID
+     * @param weddingDate 새 결혼 예정일
+     * @return 업데이트된 사용자 정보
+     */
+    public UserResponse updateWeddingDate(String userOid, LocalDate weddingDate) {
+        User user = userRepository.findById(userOid)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        user.updateWeddingDate(weddingDate);
         return UserResponse.from(user);
     }
 

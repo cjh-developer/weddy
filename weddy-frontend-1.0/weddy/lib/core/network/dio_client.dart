@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -44,8 +45,8 @@ class DioClient {
         baseUrl: _baseUrl,
         connectTimeout: Duration(seconds: _connectTimeoutSec),
         receiveTimeout: Duration(seconds: _receiveTimeoutSec),
-        // sendTimeout 누락 시 대용량 요청(파일 업로드 등)에서 무한 대기 발생 가능.
-        sendTimeout: Duration(seconds: _sendTimeoutSec),
+        // Web에서는 sendTimeout이 request body 없는 요청에 적용 불가 → 경고 방지.
+        sendTimeout: kIsWeb ? null : Duration(seconds: _sendTimeoutSec),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',

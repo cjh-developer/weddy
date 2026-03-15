@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:weddy/core/network/dio_client.dart';
@@ -15,7 +16,7 @@ Future<void> main() async {
   // 빌드 시: flutter run --dart-define=FLAVOR=production
   // 기본값은 dev (.env 파일 사용).
   const flavor = String.fromEnvironment('FLAVOR', defaultValue: 'dev');
-  final envFile = flavor == 'production' ? '.env.production' : '.env';
+  const envFile = flavor == 'production' ? '.env.production' : '.env';
   await dotenv.load(fileName: envFile);
 
   runApp(
@@ -65,27 +66,38 @@ class _WeddyAppState extends ConsumerState<WeddyApp> {
     return MaterialApp.router(
       title: 'Weddy',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ko', 'KR'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('ko', 'KR'),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF22C55E),
+          // 핑크 테마로 전환 — login_screen.dart / home_screen.dart 와 통일
+          seedColor: const Color(0xFFEC4899),
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF0FDF4),
+        scaffoldBackgroundColor: const Color(0xFFFDF2F8),
         appBarTheme: const AppBarTheme(
           centerTitle: true,
           elevation: 0,
-          backgroundColor: Color(0xFFF0FDF4),
-          foregroundColor: Color(0xFF15803D),
+          backgroundColor: Color(0xFFFDF2F8),
+          foregroundColor: Color(0xFFDB2777),
           titleTextStyle: TextStyle(
-            color: Color(0xFF15803D),
+            color: Color(0xFFDB2777),
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF22C55E),
+            backgroundColor: const Color(0xFFEC4899),
             foregroundColor: Colors.white,
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -97,24 +109,24 @@ class _WeddyAppState extends ConsumerState<WeddyApp> {
           fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: Color(0xFFBBF7D0)),
+            borderSide: BorderSide(color: Color(0xFFFCE7F3)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: Color(0xFFBBF7D0)),
+            borderSide: BorderSide(color: Color(0xFFFCE7F3)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: Color(0xFF22C55E), width: 2),
+            borderSide: BorderSide(color: Color(0xFFEC4899), width: 2),
           ),
-          prefixIconColor: Color(0xFF22C55E),
+          prefixIconColor: Color(0xFFEC4899),
         ),
         cardTheme: const CardTheme(
           color: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(16)),
-            side: BorderSide(color: Color(0xFFBBF7D0)),
+            side: BorderSide(color: Color(0xFFFCE7F3)),
           ),
         ),
       ),

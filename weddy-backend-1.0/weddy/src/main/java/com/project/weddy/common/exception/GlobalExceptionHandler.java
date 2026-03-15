@@ -2,6 +2,8 @@ package com.project.weddy.common.exception;
 
 import com.project.weddy.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -49,6 +51,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(errorCode.getHttpStatus())
                 .body(ApiResponse.fail(errorCode.getCode(), message));
+    }
+
+    /**
+     * DB UNIQUE 제약 위반 처리.
+     * 이미 연결된 커플 등 데이터 무결성 위반 시 409 Conflict를 반환한다.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.warn("[DataIntegrityViolationException] {}", ex.getMessage());
+        ErrorCode errorCode = ErrorCode.COUPLE_ALREADY_CONNECTED;
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiResponse.fail(errorCode.getCode(), errorCode.getMessage()));
     }
 
     /**

@@ -10,6 +10,7 @@ import 'package:weddy/features/auth/data/model/sign_up_request.dart';
 import 'package:weddy/features/auth/data/repository/auth_repository_impl.dart';
 import 'package:weddy/features/auth/domain/model/auth_state.dart';
 import 'package:weddy/features/auth/domain/repository/auth_repository.dart';
+import 'package:weddy/features/couple/presentation/notifier/couple_notifier.dart';
 
 // ---------------------------------------------------------------------------
 // Providers
@@ -45,6 +46,7 @@ final authNotifierProvider =
   return AuthNotifier(
     repository: repository,
     tokenStorage: tokenStorage,
+    ref: ref,
   );
 });
 
@@ -84,12 +86,15 @@ Future<void> Function() authLogoutCallbackProvider(Ref ref) {
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
   final TokenStorage _tokenStorage;
+  final Ref _ref;
 
   AuthNotifier({
     required AuthRepository repository,
     required TokenStorage tokenStorage,
+    required Ref ref,
   })  : _repository = repository,
         _tokenStorage = tokenStorage,
+        _ref = ref,
         super(const AuthInitial());
 
   /// 앱 시작 시 저장된 토큰을 확인하여 인증 상태를 복원한다.
@@ -217,6 +222,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: e,
       );
     } finally {
+      // 커플 상태를 초기화하여 다음 사용자 로그인 시 stale 데이터가 노출되지 않도록 한다.
+      _ref.read(coupleNotifierProvider.notifier).reset();
       state = const AuthUnauthenticated();
     }
   }
@@ -227,6 +234,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   void clearError() {
     if (state is AuthError) {
       state = const AuthUnauthenticated();
+    }
+  }
+
+  /// 서버에서 사용자 정보를 다시 불러와 [AuthAuthenticated] 상태를 갱신한다.
+  ///
+  /// 결혼 예정일 설정, 프로필 수정 등 사용자 정보 변경 후 호출하여
+  /// [UserModel]의 최신 데이터를 반영한다.
+  /// 갱신 실패 시 기존 상태를 유지하여 사용자 경험을 보호한다.
+  Future<void> refreshUser() async {
+    try {
+      final user = await _repository.getMyInfo();
+      state = AuthAuthenticated(user);
+      developer.log('[AuthNotifier] refreshUser success: ${user.userId}', name: 'AuthNotifier');
+    } catch (e) {
+      developer.log('[AuthNotifier] refreshUser failed (non-fatal): $e', name: 'AuthNotifier');
     }
   }
 }

@@ -16,6 +16,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.security.SecureRandom;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -64,6 +65,9 @@ public class User {
     @Column(name = "invite_code", length = 20, unique = true)
     private String inviteCode;
 
+    @Column(name = "wedding_date")
+    private LocalDate weddingDate;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -89,6 +93,10 @@ public class User {
      *
      * @return 생성된 초대 코드
      */
+    public void updateWeddingDate(LocalDate weddingDate) {
+        this.weddingDate = weddingDate;
+    }
+
     public static String generateInviteCode() {
         StringBuilder sb = new StringBuilder("WED-");
         for (int i = 0; i < INVITE_CODE_RANDOM_LENGTH; i++) {

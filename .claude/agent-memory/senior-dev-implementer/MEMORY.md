@@ -89,7 +89,7 @@
 - .env / .env.* in .gitignore (except .env.example)
 - assets: .env, .env.production, .env.example, assets/images/ in pubspec.yaml
 - Logo: assets/images/logo.jpg (copied from D:\workspace\weddy\images\default.jpg)
-- Theme: Light Green (seedColor 0xFF22C55E), scaffoldBg 0xFFF0FDF4
+- Theme: Pink (seedColor 0xFFEC4899), scaffoldBg 0xFFFDF2F8 (3단계부터 전환)
 - TokenStorage uses EncryptedSharedPreferences on Android
 - DioException always converted to ApiException in ErrorInterceptor
 - 401 response auto-clears tokens (screen nav handled by router layer)
@@ -113,7 +113,15 @@
 - lib/features/auth/presentation/notifier/auth_notifier.dart
 - lib/features/auth/presentation/screen/login_screen.dart
 - lib/features/auth/presentation/screen/sign_up_screen.dart
-- lib/core/router/app_router.dart  - GoRouter + AppRoutes + _AuthStateListenable
+- lib/core/router/app_router.dart  - GoRouter + AppRoutes + _AuthStateListenable (HomeScreen 연결 완료)
+
+## Home Feature (implemented)
+- lib/features/home/presentation/screen/home_screen.dart
+  - 6개 섹션: AppBar(SliverAppBar), 초대 섹션, 진행률, 메뉴 그리드(3x2), 추천 업체(탭바), 사랑순위
+  - 전체 정적 목업 데이터
+  - _VendorSection: StatefulWidget (탭 상태 관리)
+  - _MenuItemTile: StatefulWidget (press 애니메이션)
+  - _HomePinkButton: StatefulWidget (hover/press 효과)
 
 ## Auth Key Patterns
 - DioException handling: check e.error is ApiException first, then ApiException.fromDioException(e)

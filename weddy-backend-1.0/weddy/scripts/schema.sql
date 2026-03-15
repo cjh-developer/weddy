@@ -33,8 +33,9 @@ CREATE TABLE weddy_users (
     hand_phone  VARCHAR(20)  NULL                   COMMENT '휴대폰 번호',
     email       VARCHAR(100) NULL                   COMMENT '이메일',
     role        VARCHAR(10)  NOT NULL               COMMENT 'GROOM | BRIDE',
-    invite_code VARCHAR(20)  NULL                   COMMENT '커플 연결 초대코드',
-    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    invite_code  VARCHAR(20)  NULL                   COMMENT '커플 연결 초대코드',
+    wedding_date DATE         NULL                   COMMENT '개인 설정 결혼 예정일',
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (oid),
     UNIQUE KEY uq_user_id     (user_id),
@@ -54,6 +55,8 @@ CREATE TABLE weddy_couples (
     created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (oid),
+    UNIQUE KEY uq_groom_oid (groom_oid),
+    UNIQUE KEY uq_bride_oid (bride_oid),
     INDEX idx_groom (groom_oid),
     INDEX idx_bride (bride_oid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='커플';

@@ -43,7 +43,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final List<String> RATE_LIMITED_PATHS = List.of(
             "/api/v1/auth/login",
             "/api/v1/auth/signup",
-            "/api/v1/auth/refresh"
+            "/api/v1/auth/refresh",
+            "/api/v1/couples/connect"
     );
 
     private static final int MAX_REQUESTS_PER_MINUTE = 10;

@@ -59,6 +59,20 @@
 - 별도 null 체크 + SnackBar 조합은 UX 불일치 유발 (validator 에러 + SnackBar 동시 노출)
 - validator만으로 처리하는 것이 정확함
 
+### [PATTERN] SliverAppBar expandedHeight:0 + flexibleSpace 조합 버그
+- expandedHeight:0으로 설정하면 FlexibleSpaceBar.background가 렌더링될 공간이 없음
+- 결과: 그라디언트/배경 이미지가 표시되지 않고, backgroundColor:transparent이면 AppBar 완전 투명
+- 해결: flexibleSpace 제거 후 backgroundColor 직접 지정, 또는 expandedHeight를 kToolbarHeight 이상으로 설정
+
+### [PATTERN] 파일 내 중복 헬퍼 메서드 top-level 추출 누락
+- _showComingSoon 같은 BuildContext 기반 헬퍼가 StatelessWidget/State에 각각 중복 정의되는 패턴
+- 파일 레벨 top-level 함수로 추출하여 재사용할 것
+
+### [PATTERN] go_router errorBuilder에 HomeScreen 반환
+- errorBuilder: (context, state) => const HomeScreen() 패턴은 잠재적 무한 루프 위험
+- redirect 로직이 다시 트리거되어 예상치 못한 화면 전환 발생 가능
+- 권장: 전용 404 위젯 반환 또는 Scaffold+Text("페이지를 찾을 수 없습니다.") 사용
+
 ## Files Reviewed
 - `lib/main.dart` - WidgetsFlutterBinding.ensureInitialized() 추가됨, unauthorizedCallbackProvider override 추가됨
 - `lib/core/network/api_response.dart` - copyWith clearData flag 추가됨
@@ -66,9 +80,10 @@
 - `lib/core/network/api_exception.dart` - unused param 주석 추가됨
 - `lib/core/network/dio_client.dart` - sendTimeout, 환경분리, onUnauthorized 콜백 패턴, unauthorizedCallbackProvider 추가됨
 - `lib/core/storage/token_storage.dart` - static const 제거, iOSOptions 추가됨
-- `lib/core/router/app_router.dart` - ref.onDispose로 GoRouter+_AuthStateListenable dispose 추가됨
+- `lib/core/router/app_router.dart` - ref.onDispose로 GoRouter+_AuthStateListenable dispose 추가됨, errorBuilder 미수정(개선 권고)
 - `lib/features/auth/presentation/notifier/auth_notifier.dart` - DioException catch 제거, dio import 제거, authLogoutCallbackProvider 추가됨
 - `lib/features/auth/presentation/screen/sign_up_screen.dart` - 중복 역할 null 체크 제거됨
+- `lib/features/home/presentation/screen/home_screen.dart` - SliverAppBar 그라디언트 버그 수정, _showComingSoon top-level 추출
 
 ---
 
@@ -130,6 +145,33 @@
 - [이상 없음] JWT secret: application.yml 폴백 없음(${JWT_SECRET}), dev yml에 32자+ 시크릿, 바이트 검증 로직 있음
 - [이상 없음] RateLimitFilter @Order(1), bucket4j/caffeine import 정상, ApiResponse.fail() 시그니처 일치
 - [이상 없음] application.yml cors.allowed-origins 폴백값 정상 (localhost:3000 등)
+
+### [CRITICAL] CoupleService.connectCouple() TOCTOU 레이스 컨디션
+- existsByGroomOidOrBrideOid() 체크 후 save() 사이에 동시 요청이 들어오면 같은 사용자가 두 커플에 속할 수 있음
+- 해결: DB UNIQUE 제약(groom_oid, bride_oid 각각 UNIQUE) + 트랜잭션 격리 + DB 레벨에서 최종 방어
+- @Transactional 단독으로는 멀티 인스턴스 환경에서 보장 불가
+
+### [CRITICAL] CoupleService 역할 배정 로직 버그 (GROOM+GROOM 커플 가능)
+- me.getRole() == GROOM 이면 partner는 무조건 bride로 배정됨
+- me=GROOM, partner=GROOM 조합: groomOid=me, brideOid=partner(실제 GROOM) → DB에 GROOM이 bride 컬럼에 저장
+- UserRole.BRIDE 체크 없이 else 처리 → partner 역할 검증 미완
+- 해결: partner 역할이 me와 다른지 반드시 검증
+
+### [IMPORTANT] CoupleModel.brideOid non-nullable이나 서버는 nullable 반환 가능
+- 서버 getMyCouple()에서 CoupleResponse.brideOid = couple.getBrideOid() (nullable)
+- Flutter CoupleModel.brideOid는 required String → JSON에 brideOid:null 오면 런타임 Null cast 크래시
+
+### [IMPORTANT] connectCouple() catch 블록에 generic catch 누락
+- on DioException 처리 후 일반 catch(e) 없음 → 파싱 에러 등 비DioException 예외 시 state가 CoupleLoading으로 고착
+- loadMyCouple()은 catch(_) 있으나 connectCouple()은 누락
+
+### [PATTERN] autoDispose Provider + ref.read() 조합 주의
+- coupleNotifierProvider가 autoDispose인데 화면 전환 후 다시 진입하면 새 인스턴스 생성
+- weddingSetupProvider도 동일: autoDispose이므로 화면 이탈 시 상태 리셋 → 의도된 동작인지 확인 필요
+
+### [PATTERN] application.yml DB 자격증명 하드코딩 잔존
+- application.yml에 username:weddy, password:weddy01 평문 저장 확인됨
+- dev 환경이라도 application-dev.yml로 분리하거나 ${DB_PASSWORD:weddy01} 환경변수 패턴 사용 권고
 
 ### Flutter flutter_dotenv 패턴 (확정)
 - .env, .env.production 을 pubspec.yaml assets에 등록 → 파일이 반드시 존재해야 빌드 성공

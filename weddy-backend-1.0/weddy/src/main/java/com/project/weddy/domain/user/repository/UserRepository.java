@@ -51,4 +51,13 @@ public interface UserRepository extends JpaRepository<User, String> {
      * @return 존재하면 true
      */
     boolean existsByInviteCode(String inviteCode);
+
+    /**
+     * 초대 코드로 사용자를 조회한다.
+     * 커플 연결 시 파트너 검색에 사용한다.
+     *
+     * @param inviteCode 초대 코드 (예: "WED-A3KZ9P")
+     * @return 사용자 Optional
+     */
+    Optional<User> findByInviteCode(String inviteCode);
 }

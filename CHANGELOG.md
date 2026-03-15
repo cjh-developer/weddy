@@ -4,6 +4,73 @@
 
 ---
 
+## [3.3단계] 다크 글래스모피즘 UI 전면 개편 (2026-03-15)
+
+### Frontend — 디자인 시스템 전환: Light Glass → Dark Glassmorphism
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `features/auth/presentation/screen/login_screen.dart` | 딥 다크 배경(`#0D0D1A→#1B0929`), BackdropFilter glass 카드, dark glass 입력/소셜 버튼 |
+| `features/auth/presentation/screen/sign_up_screen.dart` | 동일 다크 글래스 구조, 역할 칩 핑크 glass 선택 효과 |
+| `features/home/presentation/screen/home_screen.dart` | 구조 개편 + 전체 다크 배경 (상세 아래 참조) |
+| `features/wedding_setup/presentation/screen/wedding_date_setup_screen.dart` | dark glass 카드, 다크 휠 피커(white 텍스트) |
+
+**새 디자인 시스템**
+- 배경: `#0D0D1A → #1B0929` 딥 다크 그라디언트
+- 카드: `ClipRRect(16) → BackdropFilter(blur:20) → Container(0x0F~0x14FFFFFF)` 3-레이어 glass
+- 테두리: `Color(0x38FFFFFF)` white 22%, 핑크 glow 그림자 유지
+- 텍스트 주: `Colors.white`, 보조: `Color(0xAAFFFFFF)` white 67%
+- 입력 필드: `Color(0xFF1E1B33)` 일반 / `Color(0xFF2A2550)` 포커스 (명시적 다크 색상)
+- 아이콘 박스: `Color(0x33EC4899)` 핑크 20%
+
+**home_screen.dart 구조 개편**
+
+| 항목 | 변경 전 | 변경 후 |
+|------|---------|---------|
+| 파트너 연결 UI | `_PartnerConnectCard` (인라인) | `_PartnerInviteButton` + `_PartnerConnectModal` (showGeneralDialog 중앙 애니메이션) |
+| 메뉴 레이아웃 | 가로 스크롤 5메뉴 | `GridView.builder(crossAxisCount:3)` 3열 그리드 6메뉴 |
+| 진행률 표시 | 별도 카드 섹션 | 헤더 인라인 0% 표시로 축소 |
+| 신규 섹션 | — | 웨딩 체크리스트 섹션 (`_ChecklistTile`, 더보기 링크) |
+| 신규 섹션 | — | 웨딩 타임라인 섹션 (`_TimelineTile`, IntrinsicHeight dot+line 구조) |
+| 커플 연결 후 헤더 | 기본 그리팅 | `'{groom} ♥ {bride} 예비부부님 오늘도 알차게 준비해봐요!'` |
+
+**아이콘 색상 체계**
+| 메뉴 | 색상 |
+|------|------|
+| 일정 관리 | 파랑 (Blue) |
+| 예산 관리 | 에메랄드 (Emerald) |
+| 업체 관리 | 앰버 (Amber) |
+| 하객 관리 | 퍼플 (Purple) |
+| 가전·혼수 | 사이안 (Cyan) |
+| 파트너 연결 | 핑크 (Pink) |
+
+### Fixed
+
+| 버그 | 원인 | 해결 |
+|------|------|------|
+| 모달 내 SnackBar 미표시 | showGeneralDialog 내 BuildContext가 Scaffold 외부 | scaffoldContext 파라미터 패턴으로 부모 context 전달 |
+| RenderFlex overflow (invite code) | Text 위젯 고정 폭 초과 | Flexible 래핑 + fontSize 26→22 축소 |
+| dead_null_aware_expression 경고 | null 체크 불필요한 위치 | 경고 발생 표현식 제거 |
+
+---
+
+## [3.3-hotfix] initState 인증 체크 + Dio 404 정상 처리 (2026-03-15)
+
+### Fixed
+
+| 버그 | 증상 | 원인 | 해결 |
+|------|------|------|------|
+| 미인증 상태 HomeScreen 401 cascade | 앱 시작 시 토큰 없는 상태에서 GET /couples/me → 401 → 강제 로그아웃 루프 | GoRouter 리다이렉트 전 initState가 잠깐 실행되어 loadMyCouple() 호출됨 | initState 첫 줄에 `if (ref.read(authNotifierProvider) is! AuthAuthenticated) return;` 추가 |
+| 커플 미연결 사용자 SEVERE 에러 로그 | 로그인 후 GET /couples/me → 404 → _ErrorInterceptor SEVERE 로그 | 404가 DioException으로 처리되어 에러 인터셉터를 거침 | `Options(validateStatus: (s) => s != null && s < 500)` 으로 에러 인터셉터 우회, 404 수신 시 CoupleNotConnected 상태로 조용히 전환 |
+
+### Changed
+| 파일 | 변경 내용 |
+|------|---------|
+| `features/home/presentation/screen/home_screen.dart` | initState: AuthAuthenticated 상태 확인 후에만 loadMyCouple() 호출 |
+| `features/couple/presentation/notifier/couple_notifier.dart` | loadMyCouple(): validateStatus 옵션 추가 (404 에러 인터셉터 우회) |
+
+---
+
 ## [2단계] 인증 시스템 구현
 
 ### Backend
@@ -252,6 +319,43 @@ source scripts/data.sql
 
 ---
 
+## [3단계] 홈 화면 구현 (2026-03-14)
+
+### Added
+
+| 파일 | 내용 |
+|------|------|
+| `lib/features/home/presentation/screen/home_screen.dart` | 홈 화면 전체 구성 — CustomScrollView + SliverAppBar(pinned) |
+
+### HomeScreen 섹션 구성
+
+| 섹션 | 위젯 | 설명 |
+|------|------|------|
+| AppBar | SliverAppBar | backgroundColor: _kPink, Playfair Display "WEDDY", 로그아웃 아이콘 |
+| 섹션1 | `_InviteSection` | 초대코드 표시(user.inviteCode nullable), 복사 버튼, 핑크 그라디언트 버튼 |
+| 섹션2 | `_ProgressSection` | 진행률 45%, LinearProgressIndicator, 통계(완료12/진행6/전체20) — 목업 static |
+| 섹션3 | `_MenuGrid` | GridView 3열, 5개 메뉴(일정/예산/업체/하객/커뮤니티), 탭 시 "준비 중" SnackBar |
+| 섹션4 | `_VendorSection` | StatefulWidget, 3탭(스튜디오/메이크업/드레스), 목업 업체 3개씩 |
+| 섹션5 | `_LoveRankingSection` | 순위 5개, 1~3위 핑크/4~5위 회색 차등 표시 |
+
+> 전체 데이터는 목업(정적) — 실제 API 연동은 추후 단계에서 처리
+
+### Changed
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `lib/main.dart` | seedColor `0xFF22C55E`(초록) → `0xFFEC4899`(핑크), scaffoldBackground `0xFFF0FDF4` → `0xFFFDF2F8` |
+| `lib/core/router/app_router.dart` | `_HomeScreen`(임시 플레이스홀더) → 실제 `HomeScreen` 교체, errorBuilder도 동일 적용 |
+
+### Fixed (lead-code-validator 검수 반영)
+
+| 버그 | 원인 | 해결 |
+|------|------|------|
+| SliverAppBar 배경색 미적용 | `expandedHeight: 0` + `flexibleSpace` 조합 버그 | `backgroundColor: _kPink` 직접 지정 |
+| `_showComingSoon` 3중 중복 정의 | 각 StatelessWidget 내부에 각각 선언 | top-level 함수로 통합 |
+
+---
+
 ## [2.6단계] 버그 수정 (2026-03-14)
 
 ### Fixed — 로그인/회원가입 후 화면 전환 불가
@@ -333,3 +437,53 @@ source scripts/data.sql
 | 회원가입 버튼 (`_DarkButton`) | 다크 그레이 솔리드 (`#374151`), hover 시 `#1F2937`, 그라디언트 없음 |
 | 입력 필드 prefix 아이콘 | 아이디: person / 비밀번호: lock / 이름: badge / 휴대폰: phone / 이메일: email |
 | 로그인 링크 | `TextButton` → 인라인 Row 스타일 ("이미 계정이 있으신가요? 로그인")
+
+---
+
+## [3.1단계] 결혼일 설정 화면 + 홈 화면 재설계 (2026-03-14)
+
+### Added — 결혼 예정일 API (Backend)
+
+| 파일 | 내용 |
+|------|------|
+| `domain/user/controller/UserController.java` | `PATCH /api/v1/users/me/wedding-date` 엔드포인트 추가 |
+| `domain/user/dto/request/UpdateWeddingDateRequest.java` | `@NotNull`, `@JsonFormat(pattern="yyyy-MM-dd")` |
+| `domain/user/service/UserService.java` | `updateWeddingDate()` — userOid 조회 → `user.updateWeddingDate()` → `UserResponse` 반환 |
+| `domain/user/entity/User.java` | `updateWeddingDate(LocalDate weddingDate)` setter 메서드 추가 |
+
+### Added — 결혼일 설정 플로우 (Frontend)
+
+| 파일 | 내용 |
+|------|------|
+| `lib/features/wedding_setup/presentation/screen/wedding_date_setup_screen.dart` | DatePicker, "저장하기" / "나중에 설정하기" 버튼, WEDDY 로고 (Playfair Display) |
+| `lib/features/wedding_setup/presentation/notifier/wedding_setup_notifier.dart` | PATCH 호출 + 성공 시 `authNotifier.refreshUser()` 로 UserModel 갱신 |
+
+### Changed — 라우팅 (Frontend)
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `lib/core/router/app_router.dart` | `AuthAuthenticated` + `weddingDate == null` + `skipped == false` → `/setup/wedding-date` 리다이렉트 로직 추가 |
+| `lib/features/wedding_setup/presentation/notifier/wedding_setup_notifier.dart` | `weddingSetupSkippedProvider`: "나중에 설정하기" 시 true (앱 재시작마다 초기화) |
+
+### Changed — 홈 화면 전면 재작성 (Frontend)
+
+**테마**: 기존 핑크 라이트 → 다크 테마 (`#1C1C1E`), `CustomScrollView` → `SingleChildScrollView`
+
+| 섹션 | 위젯/설명 |
+|------|-----------|
+| 헤더 | Playfair Display "W" 핑크 원형 + 시간대 그리팅 + 알림벨 |
+| D-DAY 칩 | `weddingDate != null`이면 날짜 + D-숫자 표시 |
+| `_PartnerConnectCard` | 초대코드 표시/복사, 파트너 코드 입력 + 연동 버튼, 연결 완료 시 `_buildConnectedView` |
+| `_buildProgressCard` | 전체 진행률 0%, 마감임박/이번주/완료 통계 |
+| `_buildQuickCards` | 일정/예산 2열 카드 |
+| `_buildTipsSection` | 가로 스크롤 팁 카드 3개 |
+| `_buildPopularSection` | 인기글 3개 (순위, 카테고리 태그, 좋아요/댓글) |
+| `_DarkBottomNavBar` | 홈/예산/커뮤니티/더보기 4탭, 홈 외 탭은 "준비 중" SnackBar |
+
+### Fixed
+
+| 버그 | 해결 |
+|------|------|
+| HomeScreen 헤더 하트 아이콘 (WEDDY 브랜딩 누락) | Playfair Display "W" 텍스트로 교체 |
+
+---
