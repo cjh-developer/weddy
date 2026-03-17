@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weddy/core/network/api_exception.dart';
 import 'package:weddy/core/network/api_response.dart';
 import 'package:weddy/core/network/dio_client.dart';
-import 'package:weddy/features/checklist/data/model/checklist_item_model.dart';
 import 'package:weddy/features/checklist/data/model/checklist_model.dart';
 
 // ---------------------------------------------------------------------------

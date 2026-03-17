@@ -32,6 +32,13 @@ public enum ErrorCode {
     CHECKLIST_NOT_FOUND("CHECKLIST_001", "체크리스트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     CHECKLIST_ITEM_NOT_FOUND("CHECKLIST_002", "체크리스트 항목을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
+    // 예산
+    BUDGET_NOT_FOUND("BUDGET_001", "예산 카테고리를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    BUDGET_ITEM_NOT_FOUND("BUDGET_002", "예산 항목을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    // BUDGET_003: 솔로 허용 정책으로 미사용 — 하위 호환성을 위해 enum 항목은 유지
+    BUDGET_COUPLE_REQUIRED("BUDGET_003", "예산 기능은 커플 연결 후 이용할 수 있습니다.", HttpStatus.FORBIDDEN),
+    BUDGET_LIMIT_EXCEEDED("BUDGET_004", "예산 카테고리는 최대 20개까지 생성할 수 있습니다.", HttpStatus.BAD_REQUEST),
+
     // 공통
     VALIDATION_FAILED("COMMON_001", "입력값 검증에 실패했습니다.", HttpStatus.BAD_REQUEST),
     RATE_LIMIT_EXCEEDED("COMMON_429", "요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),

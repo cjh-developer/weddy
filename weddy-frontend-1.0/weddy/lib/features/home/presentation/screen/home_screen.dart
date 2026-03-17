@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:weddy/core/router/app_router.dart';
 import 'package:weddy/features/auth/domain/model/auth_state.dart';
 import 'package:weddy/features/auth/presentation/notifier/auth_notifier.dart';
+import 'package:weddy/features/budget/data/model/budget_summary_model.dart';
+import 'package:weddy/features/budget/presentation/notifier/budget_notifier.dart';
 import 'package:weddy/features/checklist/data/model/checklist_model.dart';
 import 'package:weddy/features/checklist/presentation/notifier/checklist_notifier.dart';
 import 'package:weddy/features/couple/presentation/notifier/couple_notifier.dart';
@@ -357,6 +359,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const SizedBox(height: 16),
                       _buildChecklistSection(context),
                       const SizedBox(height: 20),
+                      _buildBudgetSection(context),
+                      const SizedBox(height: 20),
                       _buildTimelineSection(context),
                       const SizedBox(height: 20),
                       _buildVendorSection(context),
@@ -653,7 +657,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           iconColor.blue,
         );
         return GestureDetector(
-          onTap: () => _showComingSoon(context),
+          onTap: () {
+            if (i == 1) {
+              // 예산 탭 → /budget 이동
+              context.push(AppRoutes.budget);
+            } else {
+              _showComingSoon(context);
+            }
+          },
           child: Container(
             decoration: BoxDecoration(
               color: _kGlass,
@@ -797,6 +808,111 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   );
                 }).toList(),
               ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  // ── 예산 섹션 (API 연동) ──────────────────────────────────────────────────
+  Widget _buildBudgetSection(BuildContext context) {
+    final summaryAsync = ref.watch(budgetSummaryProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.account_balance_wallet,
+                    color: _kIconBudget, size: 18),
+                SizedBox(width: 6),
+                Text(
+                  '웨딩 예산',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: _kText,
+                  ),
+                ),
+              ],
+            ),
+            GestureDetector(
+              onTap: () => context.push(AppRoutes.budget),
+              child: const Text(
+                '더보기 >',
+                style: TextStyle(fontSize: 12, color: _kTextSub),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        summaryAsync.when(
+          loading: () => Container(
+            height: 80,
+            decoration: BoxDecoration(
+              color: _kGlass,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _kGlassBorder),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(
+                  color: _kIconBudget, strokeWidth: 2),
+            ),
+          ),
+          error: (_, __) => Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _kGlass,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _kGlassBorder),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: _kTextMute, size: 16),
+                SizedBox(width: 8),
+                Text(
+                  '예산 정보를 불러올 수 없습니다.',
+                  style: TextStyle(fontSize: 12, color: _kTextSub),
+                ),
+              ],
+            ),
+          ),
+          data: (summary) {
+            if (summary == null) {
+              // 예산 없음 또는 오류 — 첫 예산 등록 유도 카드
+              return GestureDetector(
+                onTap: () => context.push(AppRoutes.budget),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _kGlass,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _kGlassBorder),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.add_circle_outline,
+                          color: _kIconBudget, size: 18),
+                      SizedBox(width: 10),
+                      Text(
+                        '첫 예산 카테고리를 추가해보세요',
+                        style: TextStyle(fontSize: 12, color: _kTextSub),
+                      ),
+                      Spacer(),
+                      Icon(Icons.chevron_right,
+                          color: _kTextMute, size: 16),
+                    ],
+                  ),
+                ),
+              );
+            }
+            return _BudgetSummaryCard(
+              summary: summary,
+              onTap: () => context.push(AppRoutes.budget),
             );
           },
         ),
@@ -1911,6 +2027,142 @@ class _TimelineTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 예산 요약 카드 (홈 화면용)
+// ---------------------------------------------------------------------------
+
+class _BudgetSummaryCard extends StatelessWidget {
+  final BudgetSummaryModel summary;
+  final VoidCallback onTap;
+
+  const _BudgetSummaryCard({
+    required this.summary,
+    required this.onTap,
+  });
+
+  String _formatMoneyShort(int amount) {
+    if (amount >= 100000000) {
+      final eok = amount / 100000000;
+      return eok == eok.truncateToDouble()
+          ? '${eok.toInt()}억원'
+          : '${eok.toStringAsFixed(1)}억원';
+    }
+    if (amount >= 10000) {
+      final man = amount / 10000;
+      return man == man.truncateToDouble()
+          ? '${man.toInt()}만원'
+          : '${man.toStringAsFixed(1)}만원';
+    }
+    return '$amount원';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final usageRatio = summary.usageRatio;
+    final isOver = summary.usageRate > 100;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _kGlass,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _kGlassBorder),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _HomeBudgetStat(
+                    label: '총 계획',
+                    value: _formatMoneyShort(summary.totalPlanned),
+                    color: _kTextSub,
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 32,
+                  color: const Color(0x22FFFFFF),
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+                Expanded(
+                  child: _HomeBudgetStat(
+                    label: '총 지출',
+                    value: _formatMoneyShort(summary.totalSpent),
+                    color: _kIconBudget,
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 32,
+                  color: const Color(0x22FFFFFF),
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+                Expanded(
+                  child: _HomeBudgetStat(
+                    label: '사용률',
+                    value: '${summary.usageRate.toStringAsFixed(1)}%',
+                    color: isOver ? _kUrgent : _kIconBudget,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: usageRatio,
+                minHeight: 6,
+                backgroundColor: const Color(0x2234D399),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                    isOver ? _kUrgent : _kIconBudget),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeBudgetStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _HomeBudgetStat({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: _kTextMute),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 }

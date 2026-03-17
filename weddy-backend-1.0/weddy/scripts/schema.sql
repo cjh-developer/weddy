@@ -95,12 +95,13 @@ CREATE TABLE weddy_checklist_items (
 -- ============================================================
 CREATE TABLE weddy_budgets (
     oid            VARCHAR(14) NOT NULL             COMMENT 'SecureRandom 14자리 숫자 PK',
-    couple_oid     VARCHAR(14) NOT NULL             COMMENT '커플 OID',
+    owner_oid      VARCHAR(14) NOT NULL             COMMENT '소유자 OID (솔로: 사용자 OID, 커플: 커플 OID)',
     category       VARCHAR(50) NOT NULL             COMMENT '예산 카테고리명',
     planned_amount BIGINT      NOT NULL DEFAULT 0   COMMENT '계획 금액 (원)',
     created_at     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (oid),
-    INDEX idx_couple (couple_oid)
+    INDEX idx_owner (owner_oid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='예산';
 
 -- ============================================================
@@ -109,11 +110,12 @@ CREATE TABLE weddy_budgets (
 CREATE TABLE weddy_budget_items (
     oid        VARCHAR(14)  NOT NULL               COMMENT 'SecureRandom 14자리 숫자 PK',
     budget_oid VARCHAR(14)  NOT NULL               COMMENT '예산 카테고리 OID',
-    title      VARCHAR(100) NOT NULL               COMMENT '지출 항목명',
+    title      VARCHAR(200) NOT NULL               COMMENT '지출 항목명',
     amount     BIGINT       NOT NULL               COMMENT '금액 (원)',
     paid_at    DATE         NULL                   COMMENT '지출일',
     memo       VARCHAR(500) NULL                   COMMENT '메모',
     created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (oid),
     INDEX idx_budget (budget_oid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='예산 지출 항목';

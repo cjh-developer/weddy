@@ -12,7 +12,7 @@
 - CORS 명시적 오리진 완료 (2026-03-12 패치) - ${CORS_ALLOWED_ORIGINS} 환경변수 기반
 - 사용자 열거 방지 완료 (2026-03-12 패치) - login()에서 user==null/password불일치 동일 UNAUTHORIZED 응답, 타이밍공격 방어
 
-## 현재 미해결 취약점 (2026-03-15 체크리스트 CRUD 검토 후 갱신)
+## 현재 미해결 취약점 (2026-03-17 예산 CRUD 검토 후 갱신)
 
 ### HIGH
 - RateLimitFilter IP 스푸핑: X-Forwarded-For 헤더 조작으로 Rate Limit 우회 가능
@@ -26,6 +26,9 @@
 - [신규] ChecklistService.updateItem() TOCTOU 패턴 (2026-03-15 발견)
   - findById(itemOid) 먼저 → validateItemOwnership() 나중: 타인 데이터가 먼저 메모리에 로드됨
   - findByOidAndChecklistOid() 단일 복합 쿼리로 교체 필요
+- [신규] BudgetSummaryResponse 정수 오버플로우 위험 (2026-03-17 발견)
+  - totalPlanned/totalSpent: long 타입이나 getSummary()에서 mapToLong().sum() 사용 시 Long.MAX_VALUE 초과 무결성 오염 가능
+  - plannedAmount/amount에 @Max(9_999_999_999L) 상한 제약 추가 필요
 
 ### MEDIUM
 - DataInitializer 약한 비밀번호 "1234" - @Profile("dev") 이므로 dev 환경 한정
@@ -42,6 +45,16 @@
 - [신규] getHomePreview() limit 파라미터 방어 가드 없음 - limit <= 0 || limit > 20 시 기본값 3 사용
 - [신규] CreateChecklistItemRequest.sortOrder, UpdateChecklistItemRequest.sortOrder 범위 검증 없음
   - @Min(0) @Max(9999) 추가 필요
+- [신규] BudgetResponse에 coupleOid 평문 노출 (2026-03-17 발견) - 응답 DTO에서 제거 필요 (4단계 반복 패턴)
+- [신규] BudgetItemResponse에 budgetOid 평문 노출 (2026-03-17 발견) - 응답 DTO에서 제거 검토
+- [신규] CreateBudgetRequest.category @Pattern 미적용 (2026-03-17 발견) - XSS 페이로드 저장 가능 (체크리스트와 동일 패턴 반복)
+- [신규] CreateBudgetItemRequest.title/memo @Pattern 미적용 (2026-03-17 발견) - 특수문자/스크립트 태그 허용
+- [신규] 금액 필드(plannedAmount, amount) 상한값 미설정 (2026-03-17 발견) - 비정상 금액 + 정수 오버플로우 위험
+  - @Max(9_999_999_999L) 또는 Long 래퍼 + @DecimalMax 추가 필요
+- [신규] 커플당 예산 카테고리 최대 개수 제한 없음 (2026-03-17 발견) - 스토리지 DoS 가능 (체크리스트와 동일 패턴)
+  - ErrorCode.BUDGET_LIMIT_EXCEEDED 추가 + countByCoupleOid 제한 필요
+- [신규] 예산 카테고리 수정(PATCH) API 미구현 (2026-03-17 발견) - Budget.update() 메서드는 존재하나 컨트롤러 엔드포인트 없음 (보안 이슈 아님, INFO)
+- [신규] paidAt 미래 날짜 제한 없음 (2026-03-17 발견) - 결제일에 수십 년 후 날짜 허용, @PastOrPresent 추가 검토
 
 ### LOW
 - accessToken 만료시간 24시간(86400000ms): OWASP 권고 15-30분 대비 너무 김
@@ -53,6 +66,7 @@
   - ErrorCode.CHECKLIST_LIMIT_EXCEEDED 추가 + countByCoupleOid 50개 제한
 - [신규] CreateChecklistRequest.category 자유 문자열 허용 - XSS 페이로드 저장 가능 (2026-03-15)
   - @Pattern(regexp="^[가-힣a-zA-Z0-9\\s_\\-]{1,50}$") 추가 필요
+- [신규] 커플당 예산 카테고리 최대 개수 제한 없음 - 스토리지 DoS 가능 (2026-03-17 발견) - 20개 제한 권고
 
 ### INFO (미해결, 백로그)
 - .env 파일 gitignore 미적용 상태 미확인 (Flutter 쪽 재검토 필요)
@@ -68,6 +82,13 @@
 - [ ] ChecklistService.updateItem() findByOidAndChecklistOid 단일 쿼리로 교체 (HIGH - 즉시)
 - [ ] /api/v1/couples/connect Rate Limit 추가 (HIGH - 즉시)
 - [ ] weddy_couples groom_oid/bride_oid UNIQUE 제약 추가 + DataIntegrityViolationException 핸들러 (HIGH - 즉시)
+- [ ] 금액 필드 상한 @Max(9_999_999_999L) 추가 - CreateBudgetRequest.plannedAmount, CreateBudgetItemRequest.amount, UpdateBudgetItemRequest.amount (MEDIUM)
+- [ ] BudgetResponse coupleOid 제거 (MEDIUM)
+- [ ] BudgetItemResponse budgetOid 제거 검토 (MEDIUM)
+- [ ] CreateBudgetRequest.category @Pattern 추가 (MEDIUM)
+- [ ] CreateBudgetItemRequest.title/memo @Pattern 추가 (MEDIUM)
+- [ ] paidAt @PastOrPresent 검토 (LOW)
+- [ ] 커플당 예산 카테고리 20개 제한 + ErrorCode.BUDGET_LIMIT_EXCEEDED 추가 (LOW)
 - [ ] ChecklistResponse coupleOid 제거 (MEDIUM)
 - [ ] ChecklistItemResponse checklistOid 제거 검토 (MEDIUM)
 - [ ] getHomePreview() limit 방어 가드 추가 (MEDIUM)
@@ -103,6 +124,13 @@
 - [4단계] 체크리스트 2단계 IDOR 방어: getCoupleOrThrow → validateChecklistOwnership → validateItemOwnership 계층적 소유권 검증 일관 적용
 - [4단계] 체크리스트 deleteChecklist() 자식 항목 선삭제(deleteByChecklistOid) 후 부모 삭제 순서 올바름
 - [4단계] ReadOnly 트랜잭션 조회 메서드(getChecklists, getHomePreview)에 일관 적용
+- [5단계] 예산 소유권 검증 3단계 올바르게 구현: requireCoupleOid(SecurityContext) → validateBudgetOwnership(budgetOid+coupleOid) → validateItemOwnership(itemOid+budgetOid)
+- [5단계] updateItem() 인메모리 소유권 검증 패턴 채택: findById 후 item.getBudgetOid().equals(budgetOid) 비교로 추가 DB 조회 없음 (체크리스트와 일관된 패턴)
+- [5단계] deleteBudget() 자식 항목 선삭제(deleteByBudgetOid) 후 부모 삭제 순서 올바름
+- [5단계] getSummary() N+1 방지: findAllByBudgetOidIn(budgetOids) 단일 IN 쿼리로 전체 항목 조회
+- [5단계] @AuthenticationPrincipal userOid 일관 적용 - BudgetController 전 엔드포인트 정상
+- [5단계] coupleOid를 요청 파라미터로 받지 않고 SecurityContext에서 추출 - 커플 연결 우회 공격 방어 올바름
+- [5단계] getBudgets/getSummary에 @Transactional(readOnly = true) 올바르게 적용
 
 ## 반복 패턴 경고 (이 프로젝트에서 자주 발생)
 - Rate Limit 새 API 추가 시 RateLimitFilter.RATE_LIMITED_PATHS 업데이트 누락 위험 (3단계에서 발생)

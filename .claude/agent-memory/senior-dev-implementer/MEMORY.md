@@ -149,6 +149,41 @@
 - AppRoutes.checklist = '/checklist' 추가
 - home_screen.dart: _buildChecklistSection → checklistPreviewProvider 연동
 
+## Budget Feature (implemented — 5단계, 솔로 허용 패치 완료)
+### BE
+- domain/budget/entity: Budget.java (owner_oid, category, planned_amount), BudgetItem.java (budget_oid, title, amount, memo, paid_at)
+- domain/budget/repository: BudgetRepository (findByOwnerOid, existsByOidAndOwnerOid, countByOwnerOid), BudgetItemRepository (JPA)
+- domain/budget/dto/request: CreateBudgetRequest, CreateBudgetItemRequest, UpdateBudgetItemRequest
+- domain/budget/dto/response: BudgetItemResponse, BudgetResponse (spentAmount/remainingAmount 인메모리 계산), BudgetSummaryResponse
+- domain/budget/service: BudgetService (getOwnerOid() 패턴 — 체크리스트와 동일, IDOR 3단계 검증)
+  - getOwnerOid(): 커플 연결 시 coupleOid, 솔로 시 userOid 반환
+- domain/budget/controller: BudgetController (/api/v1/budgets) — 7개 엔드포인트
+  - GET /api/v1/budgets — 전체 목록 + 항목
+  - POST /api/v1/budgets — 예산 카테고리 생성
+  - DELETE /api/v1/budgets/{oid} — 삭제 (항목 포함)
+  - POST /api/v1/budgets/{oid}/items — 항목 추가
+  - PATCH /api/v1/budgets/{oid}/items/{itemOid} — 항목 수정 (null=기존값 유지)
+  - DELETE /api/v1/budgets/{oid}/items/{itemOid} — 항목 삭제
+  - GET /api/v1/budgets/summary — 홈 화면용 요약 (totalPlanned, totalSpent, usageRate)
+- ErrorCode: BUDGET_COUPLE_REQUIRED("BUDGET_003") — 미사용이나 하위 호환성 위해 enum 유지
+- schema.sql: weddy_budgets.couple_oid → owner_oid (INDEX idx_owner)
+- DataInitializer: insertBudget()에서 couple_oid → owner_oid 컬럼명 변경
+### FE
+- lib/features/budget/data/model: BudgetItemModel, BudgetModel (usageRatio getter), BudgetSummaryModel (usageRatio getter)
+- lib/features/budget/presentation/notifier/budget_notifier.dart
+  - sealed BudgetState (Initial/Loading/Loaded/Error) — isCoupleRequired 필드 제거
+  - loadBudgets: 403 처리 제거 (솔로 허용으로 발생 안 함), validateStatus 옵션 제거
+  - budgetSummaryProvider: FutureProvider.autoDispose<BudgetSummaryModel?>, 에러→null
+- lib/features/budget/presentation/screen/budget_screen.dart
+  - Dark Glass 테마, 전체 요약 카드(BackdropFilter blur:20), Accordion 섹션
+  - Dismissible 스와이프 삭제, 예산/항목 추가 다이얼로그
+  - isCoupleRequired 분기 제거 — _buildEmptyState(context)로 단순화
+  - intl NumberFormat('#,###', 'ko_KR') 사용
+- AppRoutes.budget = '/budget' 추가
+- home_screen.dart: _buildBudgetSection → budgetSummaryProvider 연동, _BudgetSummaryCard 위젯
+- home_screen.dart: summary==null 시 "첫 예산 카테고리를 추가해보세요" 카드 (→ /budget)
+- home_screen.dart: 메뉴 그리드 인덱스 1(예산) → context.push(AppRoutes.budget)
+
 ## Auth Key Patterns
 - DioException handling: check e.error is ApiException first, then ApiException.fromDioException(e)
 - login/signup both call getMyInfo() after to build full UserModel for AuthAuthenticated

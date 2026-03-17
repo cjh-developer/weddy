@@ -4,6 +4,94 @@
 
 ---
 
+## [5단계] 예산 CRUD API + Flutter 예산 화면 (2026-03-17)
+
+### Added — Backend
+
+| 파일 | 내용 |
+|------|------|
+| `domain/budget/entity/Budget.java` | 예산 엔티티 (oid PK, couple_oid INDEX, category, planned_amount) |
+| `domain/budget/entity/BudgetItem.java` | 예산 항목 엔티티 (oid PK, budget_oid INDEX, title, amount, memo, paid_at) |
+| `domain/budget/repository/BudgetRepository.java` | JPA Repository (countByCoupleOid 포함) |
+| `domain/budget/repository/BudgetItemRepository.java` | JPA Repository (findAllByBudgetOidIn IN 쿼리) |
+| `domain/budget/dto/request/` | CreateBudgetRequest, CreateBudgetItemRequest, UpdateBudgetItemRequest |
+| `domain/budget/dto/response/` | BudgetResponse(coupleOid 미노출), BudgetItemResponse(budgetOid 미노출), BudgetSummaryResponse |
+| `domain/budget/service/BudgetService.java` | requireCoupleOid(커플 미연결→403), 소유권 3단계 검증, N+1 방지(IN 쿼리), 생성 20개 한도 |
+| `domain/budget/controller/BudgetController.java` | 7개 엔드포인트 |
+
+**API 엔드포인트**
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/v1/budgets` | 전체 목록 + 항목 조회 |
+| POST | `/api/v1/budgets` | 예산 카테고리 생성 (20개 한도) |
+| DELETE | `/api/v1/budgets/{oid}` | 삭제 (항목 포함) |
+| POST | `/api/v1/budgets/{oid}/items` | 항목 추가 |
+| PATCH | `/api/v1/budgets/{oid}/items/{itemOid}` | 항목 수정 (null=기존값 유지) |
+| DELETE | `/api/v1/budgets/{oid}/items/{itemOid}` | 항목 삭제 |
+| GET | `/api/v1/budgets/summary` | 전체 예산 요약 (총계획/총지출/카테고리별) |
+
+**ErrorCode 추가**
+
+| 코드 | 의미 |
+|------|------|
+| BUDGET_001 | NOT_FOUND — 예산 없음 또는 소유권 없음 |
+| BUDGET_002 | ITEM_NOT_FOUND — 항목 없음 또는 소유권 없음 |
+| BUDGET_003 | COUPLE_REQUIRED — 커플 미연결 (솔로 사용자 접근 불가) |
+| BUDGET_004 | LIMIT_EXCEEDED — 예산 카테고리 20개 초과 |
+
+### Changed — Backend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `common/exception/ErrorCode.java` | BUDGET_001~004 추가 |
+| `resources/scripts/schema.sql` | weddy_budgets/weddy_budget_items updated_at 컬럼 추가, title VARCHAR(200) 수정 |
+
+### Security — Backend
+
+| 항목 | 내용 |
+|------|------|
+| 금액 오버플로우 방지 | `@Max(9_999_999_999L)` 추가 |
+| IDOR 방어 | BudgetResponse coupleOid 제거, BudgetItemResponse budgetOid 제거 |
+| XSS/인젝션 방지 | category, title `@Pattern` 추가 |
+| 미래 날짜 차단 | paidAt `@PastOrPresent` 추가 |
+| DoS 방지 | 예산 카테고리 20개 생성 한도 |
+| 로그 마스킹 | 로그에서 coupleOid 제거 |
+
+### Added — Frontend
+
+| 파일 | 내용 |
+|------|------|
+| `lib/features/budget/data/model/budget_item_model.dart` | BudgetItemModel |
+| `lib/features/budget/data/model/budget_model.dart` | BudgetModel (usageRatio getter) |
+| `lib/features/budget/data/model/budget_summary_model.dart` | BudgetSummaryModel |
+| `lib/features/budget/presentation/notifier/budget_notifier.dart` | sealed state (BudgetLoaded isCoupleRequired 필드), budgetSummaryProvider |
+| `lib/features/budget/presentation/screen/budget_screen.dart` | 요약 카드 + Accordion + Dismissible, 커플 미연결 안내 UI |
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `lib/core/router/app_router.dart` | AppRoutes.budget = '/budget' 추가 |
+| `lib/features/home/presentation/screen/home_screen.dart` | 예산 섹션 실제 API 연동, 메뉴 탭(인덱스 1) /budget 라우팅 |
+
+### Key Design Decisions
+
+| 결정 | 이유 |
+|------|------|
+| spentAmount 인메모리 스트림 합산 | DB SUM 쿼리 없이 서비스 레이어에서 BudgetItem.amount 합산 → 쿼리 수 최소화 |
+| getSummary() N+1 방지 | `findAllByBudgetOidIn()` 단일 IN 쿼리로 전체 항목 한 번에 조회 |
+| BudgetLoaded(isCoupleRequired:) | 403 커플 미연결 vs 정상 빈 목록 UI 분기를 sealed state 내 필드로 처리 |
+| requireCoupleOid() | 솔로 사용자 접근 불가 커플 전용 기능 — 체크리스트 getOwnerOid()와 달리 솔로 불허 |
+
+### Backlog Added
+
+| 항목 | 우선순위 |
+|------|----------|
+| 예산 카테고리 수정 API 미구현 (PATCH /api/v1/budgets/{oid}) | LOW |
+
+---
+
 ## [4.1단계] 홈 체크리스트 섹션 개선 — 제목 표시 + 섹션 직접 이동 (2026-03-16)
 
 ### Changed — Frontend

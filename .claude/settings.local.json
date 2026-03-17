@@ -3,7 +3,9 @@
     "allow": [
       "Bash(flutter analyze:*)",
       "Bash(git add:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(powershell:*)",
+      "Bash(./gradlew compileJava:*)"
     ]
   }
 }

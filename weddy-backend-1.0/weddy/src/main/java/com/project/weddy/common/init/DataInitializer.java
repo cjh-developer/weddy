@@ -175,7 +175,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private void createBudgets() {
         Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM weddy_budgets WHERE couple_oid = ?",
+                "SELECT COUNT(*) FROM weddy_budgets WHERE owner_oid = ?",
                 Integer.class, "20000000000001");
         if (count != null && count > 0) {
             log.debug("[DataInitializer] 예산 데이터 이미 존재, 건너뜀.");
@@ -209,7 +209,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private void insertBudget(String oid, String category, long plannedAmount) {
         jdbc.update("""
-                INSERT INTO weddy_budgets (oid, couple_oid, category, planned_amount)
+                INSERT INTO weddy_budgets (oid, owner_oid, category, planned_amount)
                 VALUES (?, ?, ?, ?)
                 """, oid, "20000000000001", category, plannedAmount);
     }
