@@ -4,6 +4,41 @@
 
 ---
 
+## [5단계 추가] 예산 솔로 허용 + TextField dispose 버그 수정 (2026-03-18)
+
+### Changed — Backend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `domain/budget/entity/Budget.java` | `couple_oid` → `owner_oid` (솔로=userOid, 커플=coupleOid 공용) |
+| `domain/budget/repository/BudgetRepository.java` | `findByCoupleOid` → `findByOwnerOid`, `countByCoupleOid` → `countByOwnerOid` |
+| `domain/budget/service/BudgetService.java` | `requireCoupleOid()` → `getOwnerOid()` (커플 미연결 시 userOid 반환, 솔로 허용) |
+| `common/exception/ErrorCode.java` | BUDGET_003(COUPLE_REQUIRED) 미사용 처리 — 코드는 유지, 서비스에서 미호출 |
+| `resources/scripts/schema.sql` | `weddy_budgets.couple_oid` → `owner_oid` 컬럼명 변경 |
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `lib/features/budget/presentation/notifier/budget_notifier.dart` | `BudgetLoaded.isCoupleRequired` 필드 제거 |
+| `lib/features/budget/presentation/screen/budget_screen.dart` | 커플 미연결 안내 UI 제거, 빈 목록 시 "첫 예산 카테고리 추가" 안내로 단순화 |
+| `lib/features/home/presentation/screen/home_screen.dart` | 예산 섹션 안내 문구 "파트너 연결" → "첫 예산 카테고리 추가" |
+
+### Fixed — Frontend
+
+| 버그 | 증상 | 원인 | 해결 |
+|------|------|------|------|
+| TextField dispose 크래시 | 다이얼로그 닫힐 때 "used after disposed" 에러, `_dependents.isEmpty` assertion 실패 | `.then()` + `addPostFrameCallback`에서 로컬 TextEditingController 수동 dispose 시 exit 애니메이션 중 크래시 | `_showAddBudgetDialog`, `_showAddItemDialog` 두 곳의 `.then()` dispose 블록 제거 (로컬 변수는 GC 자동 정리) |
+
+### Key Design Decisions
+
+| 결정 | 이유 |
+|------|------|
+| `owner_oid` 통합 컬럼 | 체크리스트 `getOwnerOid()` 패턴과 일치시켜 솔로/커플 공용 화면 단일화 |
+| TextField 로컬 컨트롤러 GC 위임 | Flutter는 로컬 변수 컨트롤러를 GC가 정리하므로 다이얼로그 `.then()`에서 수동 dispose 불필요 |
+
+---
+
 ## [5단계] 예산 CRUD API + Flutter 예산 화면 (2026-03-17)
 
 ### Added — Backend

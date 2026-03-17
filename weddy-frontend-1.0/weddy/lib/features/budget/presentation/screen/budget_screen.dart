@@ -691,12 +691,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
           ),
         ),
       ),
-    ).then((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        categoryCtrl.dispose();
-        amountCtrl.dispose();
-      });
-    });
+    );
   }
 
 }
@@ -1100,13 +1095,7 @@ class _BudgetSectionState extends State<_BudgetSection> {
           ),
         ),
       ),
-    ).then((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        titleCtrl.dispose();
-        amountCtrl.dispose();
-        memoCtrl.dispose();
-      });
-    });
+    );
   }
 
   void _confirmDelete(BuildContext context) {
