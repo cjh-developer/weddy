@@ -2063,7 +2063,7 @@ class _BudgetSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final usageRatio = summary.usageRatio;
-    final isOver = summary.usageRate > 100;
+    final isOver = summary.isOver;
 
     return GestureDetector(
       onTap: onTap,
@@ -2080,8 +2080,10 @@ class _BudgetSummaryCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _HomeBudgetStat(
-                    label: '총 계획',
-                    value: _formatMoneyShort(summary.totalPlanned),
+                    // 전체 예산이 설정되어 있으면 '전체 예산', 없으면 '총 계획'
+                    label: summary.totalBudget != null ? '전체 예산' : '총 계획',
+                    value: _formatMoneyShort(
+                        summary.totalBudget ?? summary.totalPlanned),
                     color: _kTextSub,
                   ),
                 ),
@@ -2107,7 +2109,10 @@ class _BudgetSummaryCard extends StatelessWidget {
                 Expanded(
                   child: _HomeBudgetStat(
                     label: '사용률',
-                    value: '${summary.usageRate.toStringAsFixed(1)}%',
+                    // 초과 시 "X.X% 초과" 빨간색, 정상 시 사용률%
+                    value: isOver
+                        ? '${summary.overRate.toStringAsFixed(1)}% 초과'
+                        : '${summary.usageRate.toStringAsFixed(1)}%',
                     color: isOver ? _kUrgent : _kIconBudget,
                   ),
                 ),

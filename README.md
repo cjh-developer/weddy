@@ -41,14 +41,20 @@
 
 <table>
   <tr>
-    <td align="center"><b>예산 - 홈</b></td>
-    <td align="center"><b>예산 - 등록</b></td>
-    <td align="center"><b>예산 - 세부 항목 등록</b></td>
+    <td align="center"><b>예산 - 예산 등록 전</b></td>
+    <td align="center"><b>예산 - 전체 예산 등록</b></td>
+    <td align="center"><b>예산 - 예산 등록 후</b></td>
+	<td align="center"><b>예산 - 카테고리별 예산 등록</b></td>
+	<td align="center"><b>예산 - 지출 세부 항목 등록</b></td>
+	<td align="center"><b>예산 - 진행률 반영</b></td>
   </tr>
   <tr>
+    <td><img src="images/06_afterLoginPage8.jpg" width="160"/></td>
+    <td><img src="images/06_afterLoginPage9.jpg" width="160"/></td>
     <td><img src="images/06_afterLoginPage5.jpg" width="160"/></td>
-    <td><img src="images/06_afterLoginPage6.jpg" width="160"/></td>
-    <td><img src="images/06_afterLoginPage7.jpg" width="160"/></td>
+	<td><img src="images/06_afterLoginPage6.jpg" width="160"/></td>
+	<td><img src="images/06_afterLoginPage10.jpg" width="160"/></td>
+	<td><img src="images/06_afterLoginPage11.jpg" width="160"/></td>
   </tr>
 </table>
 

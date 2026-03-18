@@ -4,8 +4,10 @@ import com.project.weddy.common.response.ApiResponse;
 import com.project.weddy.domain.budget.dto.request.CreateBudgetItemRequest;
 import com.project.weddy.domain.budget.dto.request.CreateBudgetRequest;
 import com.project.weddy.domain.budget.dto.request.UpdateBudgetItemRequest;
+import com.project.weddy.domain.budget.dto.request.UpsertBudgetSettingsRequest;
 import com.project.weddy.domain.budget.dto.response.BudgetItemResponse;
 import com.project.weddy.domain.budget.dto.response.BudgetResponse;
+import com.project.weddy.domain.budget.dto.response.BudgetSettingsResponse;
 import com.project.weddy.domain.budget.dto.response.BudgetSummaryResponse;
 import com.project.weddy.domain.budget.service.BudgetService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -97,7 +100,22 @@ public class BudgetController {
         budgetService.deleteItem(userOid, budgetOid, itemOid);
     }
 
-    @Operation(summary = "예산 요약 조회", description = "홈 화면용 총 계획 금액, 사용 금액, 사용률을 반환합니다.")
+    @Operation(summary = "전체 예산 설정 조회", description = "전체 예산 설정값을 조회합니다. 미설정이면 totalBudget=null을 반환합니다.")
+    @GetMapping("/settings")
+    public ApiResponse<BudgetSettingsResponse> getSettings(
+            @AuthenticationPrincipal String userOid) {
+        return ApiResponse.success("예산 설정 조회 성공", budgetService.getSettings(userOid));
+    }
+
+    @Operation(summary = "전체 예산 설정 저장", description = "전체 예산을 설정합니다. 기존 설정이 있으면 갱신합니다.")
+    @PutMapping("/settings")
+    public ApiResponse<BudgetSettingsResponse> upsertSettings(
+            @AuthenticationPrincipal String userOid,
+            @Valid @RequestBody UpsertBudgetSettingsRequest req) {
+        return ApiResponse.success("예산 설정 저장 성공", budgetService.upsertSettings(userOid, req));
+    }
+
+    @Operation(summary = "예산 요약 조회", description = "홈 화면용 총 계획 금액, 사용 금액, 사용률, 전체 예산 설정값을 반환합니다.")
     @GetMapping("/summary")
     public ApiResponse<BudgetSummaryResponse> getSummary(
             @AuthenticationPrincipal String userOid) {

@@ -5,13 +5,17 @@ import com.project.weddy.common.exception.ErrorCode;
 import com.project.weddy.domain.budget.dto.request.CreateBudgetItemRequest;
 import com.project.weddy.domain.budget.dto.request.CreateBudgetRequest;
 import com.project.weddy.domain.budget.dto.request.UpdateBudgetItemRequest;
+import com.project.weddy.domain.budget.dto.request.UpsertBudgetSettingsRequest;
 import com.project.weddy.domain.budget.dto.response.BudgetItemResponse;
 import com.project.weddy.domain.budget.dto.response.BudgetResponse;
+import com.project.weddy.domain.budget.dto.response.BudgetSettingsResponse;
 import com.project.weddy.domain.budget.dto.response.BudgetSummaryResponse;
 import com.project.weddy.domain.budget.entity.Budget;
 import com.project.weddy.domain.budget.entity.BudgetItem;
+import com.project.weddy.domain.budget.entity.BudgetSettings;
 import com.project.weddy.domain.budget.repository.BudgetItemRepository;
 import com.project.weddy.domain.budget.repository.BudgetRepository;
+import com.project.weddy.domain.budget.repository.BudgetSettingsRepository;
 import com.project.weddy.domain.couple.entity.Couple;
 import com.project.weddy.domain.couple.repository.CoupleRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +40,7 @@ public class BudgetService {
 
     private final BudgetRepository budgetRepository;
     private final BudgetItemRepository budgetItemRepository;
+    private final BudgetSettingsRepository budgetSettingsRepository;
     private final CoupleRepository coupleRepository;
 
     /**
@@ -198,10 +203,13 @@ public class BudgetService {
 
     /**
      * 홈 화면용 예산 요약 정보를 조회한다.
-     * 소유자의 전체 계획 금액, 지출 금액, 예산 사용률을 반환한다.
+     * 소유자의 전체 계획 금액, 지출 금액, 예산 사용률, 전체 예산 설정값을 반환한다.
+     *
+     * <p>usageRate 분모: totalBudget 설정 시 totalBudget, 미설정 시 totalPlanned.
+     * 분모가 0이면 usageRate = 0.0 처리.
      *
      * @param userOid 현재 사용자 OID
-     * @return 예산 요약 (totalPlanned, totalSpent, usageRate)
+     * @return 예산 요약 (totalPlanned, totalSpent, usageRate, totalBudget)
      */
     @Transactional(readOnly = true)
     public BudgetSummaryResponse getSummary(String userOid) {
@@ -218,13 +226,57 @@ public class BudgetService {
                     .stream().mapToLong(BudgetItem::getAmount).sum();
         }
 
-        double usageRate = totalPlanned == 0 ? 0.0
-                : Math.round((double) totalSpent / totalPlanned * 1000.0) / 10.0;
+        // 전체 예산 설정값 조회 (미설정이면 null)
+        Long totalBudget = budgetSettingsRepository.findByOwnerOid(ownerOid)
+                .map(s -> s.getTotalAmount() > 0 ? s.getTotalAmount() : null)
+                .orElse(null);
+
+        // usageRate 분모: totalBudget 우선, 없으면 totalPlanned
+        long denominator = totalBudget != null ? totalBudget : totalPlanned;
+        double usageRate = denominator == 0 ? 0.0
+                : Math.round((double) totalSpent / denominator * 1000.0) / 10.0;
 
         return BudgetSummaryResponse.builder()
                 .totalPlanned(totalPlanned)
                 .totalSpent(totalSpent)
                 .usageRate(usageRate)
+                .totalBudget(totalBudget)
                 .build();
+    }
+
+    /**
+     * 전체 예산 설정을 조회한다.
+     * 설정이 없으면 totalBudget=null인 응답을 반환한다.
+     *
+     * @param userOid 현재 사용자 OID
+     * @return 전체 예산 설정 응답
+     */
+    @Transactional(readOnly = true)
+    public BudgetSettingsResponse getSettings(String userOid) {
+        String ownerOid = getOwnerOid(userOid);
+        return budgetSettingsRepository.findByOwnerOid(ownerOid)
+                .map(BudgetSettingsResponse::from)
+                .orElseGet(BudgetSettingsResponse::notConfigured);
+    }
+
+    /**
+     * 전체 예산 설정을 저장(upsert)한다.
+     * 기존 설정이 있으면 금액을 갱신하고, 없으면 신규 생성한다.
+     *
+     * @param userOid 현재 사용자 OID
+     * @param req     전체 예산 upsert 요청
+     * @return 저장된 전체 예산 설정 응답
+     */
+    @Transactional
+    public BudgetSettingsResponse upsertSettings(String userOid, UpsertBudgetSettingsRequest req) {
+        String ownerOid = getOwnerOid(userOid);
+        BudgetSettings settings = budgetSettingsRepository.findByOwnerOid(ownerOid)
+                .orElseGet(() -> BudgetSettings.builder()
+                        .ownerOid(ownerOid)
+                        .build());
+        settings.updateTotalAmount(req.getTotalAmount());
+        BudgetSettings saved = budgetSettingsRepository.save(settings);
+        log.info("예산 설정 upsert: ownerOid={}", ownerOid);
+        return BudgetSettingsResponse.from(saved);
     }
 }

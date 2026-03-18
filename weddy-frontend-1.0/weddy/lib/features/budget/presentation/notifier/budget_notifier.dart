@@ -5,6 +5,7 @@ import 'package:weddy/core/network/api_exception.dart';
 import 'package:weddy/core/network/api_response.dart';
 import 'package:weddy/core/network/dio_client.dart';
 import 'package:weddy/features/budget/data/model/budget_model.dart';
+import 'package:weddy/features/budget/data/model/budget_settings_model.dart';
 import 'package:weddy/features/budget/data/model/budget_summary_model.dart';
 
 // ---------------------------------------------------------------------------
@@ -158,6 +159,26 @@ class BudgetNotifier extends StateNotifier<BudgetState> {
     }
   }
 
+  /// 전체 예산 설정을 저장(upsert)한다.
+  /// 성공 시 true, 실패 시 false를 반환한다.
+  Future<bool> upsertSettings(int totalAmount) async {
+    try {
+      await _dio.put('/budgets/settings', data: {'totalAmount': totalAmount});
+      return true;
+    } on DioException catch (e) {
+      if (!mounted) return false;
+      final apiEx = e.error is ApiException
+          ? e.error as ApiException
+          : ApiException.fromDioException(e);
+      state = BudgetError(apiEx.message);
+      return false;
+    } catch (_) {
+      if (!mounted) return false;
+      state = const BudgetError('예산 설정 중 오류가 발생했습니다.');
+      return false;
+    }
+  }
+
   /// 에러 상태를 초기화한다.
   void clearError() {
     if (state is BudgetError) state = const BudgetInitial();
@@ -193,5 +214,27 @@ final budgetSummaryProvider =
     return BudgetSummaryModel.fromJson(apiResp.data!);
   } catch (_) {
     return null;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 전체 예산 설정 Provider
+// ---------------------------------------------------------------------------
+
+/// BudgetScreen 진입 시 전체 예산 설정 여부를 조회한다.
+/// 에러 시 미설정 상태(BudgetSettingsModel())를 반환한다.
+final budgetSettingsProvider =
+    FutureProvider.autoDispose<BudgetSettingsModel>((ref) async {
+  final dio = ref.watch(dioClientProvider);
+  try {
+    final res = await dio.get('/budgets/settings');
+    final data = res.data as Map<String, dynamic>;
+    if (data['success'] == true && data['data'] != null) {
+      return BudgetSettingsModel.fromJson(
+          data['data'] as Map<String, dynamic>);
+    }
+    return const BudgetSettingsModel();
+  } catch (_) {
+    return const BudgetSettingsModel();
   }
 });

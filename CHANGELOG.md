@@ -4,6 +4,32 @@
 
 ---
 
+## [5.1단계] 예산 화면 UX 개선 — 전체 예산 다이얼로그 전환 (2026-03-19)
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `lib/features/budget/presentation/screen/budget_screen.dart` | `_buildTotalBudgetSetupScreen()` 메서드 및 `_setupAmountCtrl` State 필드 제거 — 설정 전용 전체 화면 폐지 |
+| `lib/features/budget/presentation/screen/budget_screen.dart` | `showModalBottomSheet` → `showDialog + Center + Dialog` 패턴으로 전체 예산 다이얼로그 화면 중앙 배치, `SingleChildScrollView + viewInsets.bottom` 키보드 대응 |
+| `lib/features/budget/presentation/screen/budget_screen.dart` | 요약 카드 전체 예산 행 항상 표시 — 미설정 시 "설정하기" 초록 칩, 설정 시 금액 + 수정 아이콘 |
+| `lib/features/budget/presentation/screen/budget_screen.dart` | TextField 입력 텍스트 색상 `_kText(흰색)` → `Colors.black87`, hint `Colors.black45`, suffix `Colors.black54` |
+
+### Fixed — Frontend
+
+| 버그 | 증상 | 원인 | 해결 |
+|------|------|------|------|
+| 빈 상태 전체 예산 UI 사라짐 | 모든 카테고리 삭제 후 전체 예산 설정/수정 버튼이 노출되지 않음 | `!isConfigured` 조건부 렌더링으로 빈 상태에서만 설정 버튼 표시하던 로직 오류 | 항상 전체 예산 설정 버튼 노출, 설정 여부에 따라 표시 텍스트/아이콘만 분기 |
+
+### Key Design Decisions
+
+| 결정 | 이유 |
+|------|------|
+| 설정 전용 화면 폐지, 다이얼로그 통합 | 자동 화면 전환은 UX 맥락 단절 유발 — 항상 동일 화면에서 다이얼로그로 설정/수정 처리 |
+| Dialog 위젯 TextField 텍스트 흑색 | Dialog 기본 배경이 흰색이므로 다크 글래스모피즘 화면과 별도로 텍스트 색상 지정 필요 |
+
+---
+
 ## [5단계 추가] 예산 솔로 허용 + TextField dispose 버그 수정 (2026-03-18)
 
 ### Changed — Backend

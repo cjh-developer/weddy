@@ -12,6 +12,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS weddy_couple_favorites;
 DROP TABLE IF EXISTS weddy_budget_items;
+DROP TABLE IF EXISTS weddy_budget_settings;
 DROP TABLE IF EXISTS weddy_budgets;
 DROP TABLE IF EXISTS weddy_checklist_items;
 DROP TABLE IF EXISTS weddy_checklists;
@@ -119,6 +120,19 @@ CREATE TABLE weddy_budget_items (
     PRIMARY KEY (oid),
     INDEX idx_budget (budget_oid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='예산 지출 항목';
+
+-- ============================================================
+-- 전체 예산 설정
+-- ============================================================
+CREATE TABLE weddy_budget_settings (
+    oid          VARCHAR(14)  NOT NULL               COMMENT 'SecureRandom 14자리 숫자 PK',
+    owner_oid    VARCHAR(14)  NOT NULL               COMMENT '소유자 OID (솔로: 사용자 OID, 커플: 커플 OID)',
+    total_amount BIGINT       NOT NULL DEFAULT 0     COMMENT '전체 예산 금액 (원)',
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (oid),
+    UNIQUE KEY uq_budget_settings_owner_oid (owner_oid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='전체 예산 설정';
 
 -- ============================================================
 -- 웨딩 업체

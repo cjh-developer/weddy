@@ -42,3 +42,41 @@
 - null이면 기존 값 유지, ""이면 빈 문자열로 저장 → 의도적으로 memo를 지우려면 "" 전송
 - 이 동작은 허용 가능하고 클라이언트에서 ""로 제어 가능
 - 단, paidAt은 null=유지 패턴이어서 paidAt을 지우고 싶은 경우 별도 처리 필요
+
+---
+
+## 검토 완료 (2026-03-19) — 전체 예산 설정 기능
+
+### [CRITICAL - 수정됨] _buildSummaryCard usageRatio clamp 후 isOver 판정 불가
+- budget_screen.dart: `(totalSpent / denominator).clamp(0.0, 1.0)` 적용 후 `usageRatio > 1.0`을 검사
+- clamp(0.0, 1.0)으로 인해 실제 초과 여부가 항상 false → 초과 시 빨간 표시/초과율 계산 모두 무동작
+- 해결: rawRatio(클램프 전) / usageRatio(클램프 후 ProgressBar용) 분리
+  - `isOver = rawRatio > 1.0`
+  - 초과율 표시: `(rawRatio - 1.0) * 100`
+  - ProgressBar value: `usageRatio` (클램프된 값)
+
+### [IMPORTANT - 수정됨] _showEditTotalBudgetDialog에서 loadBudgets() 미호출
+- upsertSettings 성공 후 ref.invalidate(budgetSettingsProvider)만 실행 → 요약 카드 집계 금액 미갱신
+- 해결: ref.invalidate 후 budgetNotifierProvider.notifier.loadBudgets() 추가 호출
+
+### [IMPORTANT - 수정됨] 다이얼로그 금액 하한 검증 불일치 (amount < 0 → amount < 1)
+- _showAddBudgetDialog, _showAddItemDialog 양쪽에서 `amount < 0` 허용 → 0원 입력 가능
+- 서버 @Min(value=1) 검증과 불일치 → 서버에서 400 반환됨
+- 해결: `amount < 1`로 수정 (두 다이얼로그 모두)
+
+### [MINOR - 수정됨] BudgetService.upsertSettings() orElseGet 블록 불필요한 totalAmount 초기화
+- 신규 생성 시 빌더에서 `.totalAmount(req.getTotalAmount())` 설정 후 `settings.updateTotalAmount()` 재호출
+- 기능 오류는 아니나 코드 중복. 빌더에서 totalAmount 제거, updateTotalAmount()로 일원화
+
+### [확인됨] BudgetSettings @PrePersist oid 생성 정상
+- orElseGet에서 빌더로 생성 시 oid를 지정하지 않으면 null → @PrePersist에서 OidGenerator.generate() 호출
+- save() 호출 시점에 @PrePersist 트리거되므로 oid 생성 누락 없음 (정상)
+
+### [확인됨] budgetSettingsProvider 파싱 패턴 차이 (budgetSummaryProvider와 비교)
+- budgetSummaryProvider: ApiResponse 래퍼 클래스 사용 (ApiResponse.fromJson)
+- budgetSettingsProvider: res.data 직접 파싱 (data['success'] == true && data['data'] != null)
+- 두 패턴 모두 동작하나 팀 내 일관성을 위해 ApiResponse 래퍼 클래스 사용 권고 (향후 통일 필요)
+
+### [확인됨] DataInitializer 주석/로그 체크리스트 항목 수 불일치 (11개→12개, 13개→12개) - 수정됨
+- 클래스 Javadoc: "항목 11개" → 실제 insertChecklistItem 12개 호출. 수정: "항목 12개"
+- log.info 메시지: "항목 13개 생성 완료" → 실제 12개. 수정: "항목 12개"

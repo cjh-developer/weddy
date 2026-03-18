@@ -55,12 +55,13 @@ public class GlobalExceptionHandler {
 
     /**
      * DB UNIQUE 제약 위반 처리.
-     * 이미 연결된 커플 등 데이터 무결성 위반 시 409 Conflict를 반환한다.
+     * 동시 요청으로 인한 중복 INSERT 등 데이터 무결성 위반 시 409 Conflict를 반환한다.
+     * 도메인에 무관하게 범용 에러코드(COMMON_409)를 사용하여 커플·예산 설정 등 모든 케이스를 포괄한다.
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         log.warn("[DataIntegrityViolationException] {}", ex.getMessage());
-        ErrorCode errorCode = ErrorCode.COUPLE_ALREADY_CONNECTED;
+        ErrorCode errorCode = ErrorCode.DUPLICATE_REQUEST;
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(ApiResponse.fail(errorCode.getCode(), errorCode.getMessage()));

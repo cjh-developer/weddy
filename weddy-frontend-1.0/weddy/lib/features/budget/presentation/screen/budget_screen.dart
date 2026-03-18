@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import 'package:weddy/features/budget/data/model/budget_item_model.dart';
 import 'package:weddy/features/budget/data/model/budget_model.dart';
+import 'package:weddy/features/budget/data/model/budget_settings_model.dart';
 import 'package:weddy/features/budget/presentation/notifier/budget_notifier.dart';
 
 // ---------------------------------------------------------------------------
@@ -218,107 +219,125 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
 
   // ── 본문 ─────────────────────────────────────────────────────────────────
   Widget _buildBody(BuildContext context, BudgetState budgetState) {
-    if (budgetState is BudgetLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: _kBudgetColor),
-      );
-    }
+    // 전체 예산 설정 여부를 먼저 확인한다.
+    final settingsAsync = ref.watch(budgetSettingsProvider);
 
-    if (budgetState is BudgetError) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, color: _kUrgent, size: 48),
-            const SizedBox(height: 12),
-            Text(
-              budgetState.message,
-              style: const TextStyle(color: _kTextSub, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            GestureDetector(
-              onTap: () =>
-                  ref.read(budgetNotifierProvider.notifier).loadBudgets(),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [_kBudgetColor, Color(0xFF6EE7B7)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
+    return settingsAsync.when(
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: _kBudgetColor),
+      ),
+      error: (_, __) => const Center(
+        child: CircularProgressIndicator(color: _kBudgetColor),
+      ),
+      data: (settings) {
+        // 이하 기존 예산 목록 화면 로직
+        if (budgetState is BudgetLoading) {
+          return const Center(
+            child: CircularProgressIndicator(color: _kBudgetColor),
+          );
+        }
+
+        if (budgetState is BudgetError) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, color: _kUrgent, size: 48),
+                const SizedBox(height: 12),
+                Text(
+                  budgetState.message,
+                  style: const TextStyle(color: _kTextSub, fontSize: 14),
+                  textAlign: TextAlign.center,
                 ),
-                child: const Text(
-                  '다시 시도',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w600),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () =>
+                      ref.read(budgetNotifierProvider.notifier).loadBudgets(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_kBudgetColor, Color(0xFF6EE7B7)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      '다시 시도',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (budgetState is BudgetLoaded) {
+          final budgets = budgetState.budgets;
+
+          if (budgets.isEmpty) {
+            return _buildEmptyState(context, settings);
+          }
+
+          // 전체 요약 + 카테고리 섹션
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildSummaryCard(budgets, settings),
+                    const SizedBox(height: 16),
+                    ...budgets.map((budget) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _BudgetSection(
+                            budget: budget,
+                            onAddItem: (title, amount, memo, paidAt) {
+                              ref
+                                  .read(budgetNotifierProvider.notifier)
+                                  .addItem(
+                                      budget.oid, title, amount, memo, paidAt);
+                            },
+                            onDeleteItem: (itemOid) {
+                              ref
+                                  .read(budgetNotifierProvider.notifier)
+                                  .deleteItem(budget.oid, itemOid);
+                            },
+                            onDeleteBudget: () {
+                              ref
+                                  .read(budgetNotifierProvider.notifier)
+                                  .deleteBudget(budget.oid);
+                            },
+                          ),
+                        )),
+                  ]),
                 ),
               ),
-            ),
-          ],
-        ),
-      );
-    }
+            ],
+          );
+        }
 
-    if (budgetState is BudgetLoaded) {
-      final budgets = budgetState.budgets;
-
-      if (budgets.isEmpty) {
-        return _buildEmptyState(context);
-      }
-
-      // 전체 요약 + 카테고리 섹션
-      return CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _buildSummaryCard(budgets),
-                const SizedBox(height: 16),
-                ...budgets.map((budget) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _BudgetSection(
-                        budget: budget,
-                        onAddItem: (title, amount, memo, paidAt) {
-                          ref
-                              .read(budgetNotifierProvider.notifier)
-                              .addItem(budget.oid, title, amount, memo, paidAt);
-                        },
-                        onDeleteItem: (itemOid) {
-                          ref
-                              .read(budgetNotifierProvider.notifier)
-                              .deleteItem(budget.oid, itemOid);
-                        },
-                        onDeleteBudget: () {
-                          ref
-                              .read(budgetNotifierProvider.notifier)
-                              .deleteBudget(budget.oid);
-                        },
-                      ),
-                    )),
-              ]),
-            ),
-          ),
-        ],
-      );
-    }
-
-    // BudgetInitial — 로딩 스피너
-    return const Center(
-      child: CircularProgressIndicator(color: _kBudgetColor),
+        // BudgetInitial — 로딩 스피너
+        return const Center(
+          child: CircularProgressIndicator(color: _kBudgetColor),
+        );
+      },
     );
   }
 
   // ── 전체 요약 카드 ────────────────────────────────────────────────────────
-  Widget _buildSummaryCard(List<BudgetModel> budgets) {
-    final totalPlanned =
-        budgets.fold(0, (sum, b) => sum + b.plannedAmount);
+  Widget _buildSummaryCard(
+      List<BudgetModel> budgets, BudgetSettingsModel settings) {
+    final totalPlanned = budgets.fold(0, (sum, b) => sum + b.plannedAmount);
     final totalSpent = budgets.fold(0, (sum, b) => sum + b.spentAmount);
-    final usageRatio =
-        totalPlanned == 0 ? 0.0 : (totalSpent / totalPlanned).clamp(0.0, 1.0);
-    final usagePercent = (usageRatio * 100).toStringAsFixed(1);
+    // 전체 예산 설정값이 있으면 그것을 기준으로, 없으면 계획 금액 기준으로 비율 계산
+    final denominator = settings.totalBudget ?? totalPlanned;
+    final rawRatio = denominator == 0 ? 0.0 : totalSpent / denominator;
+    final usageRatio = rawRatio.clamp(0.0, 1.0);
+    final isOver = rawRatio > 1.0;
+    final usagePercent = (rawRatio * 100).clamp(0.0, double.infinity).toStringAsFixed(1);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -358,6 +377,62 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                   ),
                 ],
               ),
+              // 전체 예산 행 (항상 표시 — 미설정 시 설정 버튼, 설정 시 수정 버튼)
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '전체 예산',
+                    style: TextStyle(color: _kTextSub, fontSize: 13),
+                  ),
+                  if (settings.totalBudget == null)
+                    GestureDetector(
+                      onTap: () =>
+                          _showEditTotalBudgetDialog(context, 0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _kBudgetColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: _kBudgetColor.withOpacity(0.4),
+                              width: 1),
+                        ),
+                        child: const Text(
+                          '설정하기',
+                          style: TextStyle(
+                              color: _kBudgetColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    )
+                  else
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _formatMoney(settings.totalBudget!),
+                          style: const TextStyle(
+                              color: _kText,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => _showEditTotalBudgetDialog(
+                              context, settings.totalBudget!),
+                          child: const Icon(Icons.edit_outlined,
+                              color: _kTextMute, size: 14),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Divider(height: 1, color: Colors.white.withOpacity(0.08)),
               const SizedBox(height: 16),
               // 금액 Row
               Row(
@@ -391,10 +466,13 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                   Expanded(
                     child: _SummaryAmountTile(
                       label: '잔여 금액',
-                      amount: totalPlanned - totalSpent,
-                      color: totalPlanned - totalSpent >= 0
-                          ? _kGreen
-                          : _kUrgent,
+                      amount: (settings.totalBudget ?? totalPlanned) -
+                          totalSpent,
+                      color:
+                          (settings.totalBudget ?? totalPlanned) - totalSpent >=
+                                  0
+                              ? _kGreen
+                              : _kUrgent,
                     ),
                   ),
                 ],
@@ -406,15 +484,16 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                 children: [
                   const Text(
                     '예산 사용률',
-                    style: TextStyle(
-                        fontSize: 12, color: _kTextSub),
+                    style: TextStyle(fontSize: 12, color: _kTextSub),
                   ),
                   Text(
-                    '$usagePercent%',
+                    isOver
+                        ? '${((rawRatio - 1.0) * 100).toStringAsFixed(1)}% 초과'
+                        : '$usagePercent%',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: usageRatio > 1.0 ? _kUrgent : _kBudgetColor,
+                      color: isOver ? _kUrgent : _kBudgetColor,
                     ),
                   ),
                 ],
@@ -427,7 +506,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                   minHeight: 8,
                   backgroundColor: const Color(0x2634D399),
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    usageRatio > 1.0 ? _kUrgent : _kBudgetColor,
+                    isOver ? _kUrgent : _kBudgetColor,
                   ),
                 ),
               ),
@@ -438,8 +517,143 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     );
   }
 
+  // ── 전체 예산 설정/수정 다이얼로그 (화면 중앙) ───────────────────────────
+  void _showEditTotalBudgetDialog(
+      BuildContext context, int currentBudget) {
+    final isNew = currentBudget == 0;
+    final amountCtrl = TextEditingController(
+        text: isNew ? '' : currentBudget.toString());
+
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.65),
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF13132A),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                      color: const Color(0x33FFFFFF), width: 1),
+                ),
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 아이콘
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: _kBudgetColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: _kBudgetColor.withOpacity(0.35),
+                            width: 1.5),
+                      ),
+                      child: const Icon(
+                          Icons.account_balance_wallet_outlined,
+                          color: _kBudgetColor,
+                          size: 36),
+                    ),
+                    const SizedBox(height: 20),
+                    // 제목
+                    Text(
+                      isNew ? '전체 예산을 설정해주세요' : '전체 예산 수정',
+                      style: GoogleFonts.playfairDisplay(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: _kText,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isNew
+                          ? '총 결혼 예산을 입력하면\n카테고리별 예산 관리가 시작됩니다'
+                          : '변경할 전체 예산 금액을 입력해주세요',
+                      textAlign: TextAlign.center,
+                      style:
+                          const TextStyle(color: _kTextSub, fontSize: 13),
+                    ),
+                    const SizedBox(height: 28),
+                    // 금액 입력
+                    _buildBudgetDialogField(
+                      controller: amountCtrl,
+                      hint: '전체 예산 금액 (원)',
+                      icon: Icons.attach_money,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    // 확인 버튼
+                    SizedBox(
+                      width: double.infinity,
+                      child: GestureDetector(
+                        onTap: () async {
+                          final raw = amountCtrl.text.trim();
+                          final amount = int.tryParse(raw);
+                          if (amount == null || amount < 1) return;
+                          Navigator.of(ctx).pop();
+                          final ok = await ref
+                              .read(budgetNotifierProvider.notifier)
+                              .upsertSettings(amount);
+                          if (ok && mounted) {
+                            ref.invalidate(budgetSettingsProvider);
+                            ref
+                                .read(budgetNotifierProvider.notifier)
+                                .loadBudgets();
+                          }
+                        },
+                        child: Container(
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [_kBudgetColor, Color(0xFF6EE7B7)],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _kBudgetColor.withOpacity(0.40),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              isNew ? '예산 설정 시작' : '저장',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── 빈 상태 ──────────────────────────────────────────────────────────────
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(
+      BuildContext context, BudgetSettingsModel settings) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -471,6 +685,40 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
+          // 전체 예산 항상 표시 — 설정 시 금액+수정, 미설정 시 설정하기
+          GestureDetector(
+            onTap: () => _showEditTotalBudgetDialog(
+                context, settings.totalBudget ?? 0),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+              decoration: BoxDecoration(
+                color: _kBudgetColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: _kBudgetColor.withOpacity(0.4), width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    settings.isConfigured
+                        ? '전체 예산: ${_formatMoneyShort(settings.totalBudget!)}'
+                        : '전체 예산 설정하기',
+                    style: const TextStyle(
+                      color: _kBudgetColor,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.edit_outlined,
+                      color: _kBudgetColor, size: 14),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           GestureDetector(
             onTap: () => _showAddBudgetDialog(context),
             child: Container(
@@ -651,7 +899,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                         final amountText = amountCtrl.text.trim();
                         if (category.isEmpty || amountText.isEmpty) return;
                         final amount = int.tryParse(amountText);
-                        if (amount == null || amount < 0) return;
+                        if (amount == null || amount < 1) return;
                         Navigator.of(ctx).pop();
                         ref
                             .read(budgetNotifierProvider.notifier)
@@ -1056,7 +1304,7 @@ class _BudgetSectionState extends State<_BudgetSection> {
                       final amountText = amountCtrl.text.trim();
                       if (title.isEmpty || amountText.isEmpty) return;
                       final amount = int.tryParse(amountText);
-                      if (amount == null || amount < 0) return;
+                      if (amount == null || amount < 1) return;
                       final memo = memoCtrl.text.trim();
                       Navigator.of(ctx).pop();
                       widget.onAddItem(

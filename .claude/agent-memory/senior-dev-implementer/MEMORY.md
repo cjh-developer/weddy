@@ -157,28 +157,44 @@
 - domain/budget/dto/response: BudgetItemResponse, BudgetResponse (spentAmount/remainingAmount 인메모리 계산), BudgetSummaryResponse
 - domain/budget/service: BudgetService (getOwnerOid() 패턴 — 체크리스트와 동일, IDOR 3단계 검증)
   - getOwnerOid(): 커플 연결 시 coupleOid, 솔로 시 userOid 반환
-- domain/budget/controller: BudgetController (/api/v1/budgets) — 7개 엔드포인트
+- domain/budget/entity: BudgetSettings.java (oid PK, owner_oid UNIQUE, total_amount)
+- domain/budget/repository: BudgetSettingsRepository (findByOwnerOid)
+- domain/budget/dto/request: UpsertBudgetSettingsRequest (@Min(1), @Max(9_999_999_999L))
+- domain/budget/dto/response: BudgetSettingsResponse (totalBudget nullable, notConfigured() 팩토리)
+- domain/budget/controller: BudgetController (/api/v1/budgets) — 9개 엔드포인트
   - GET /api/v1/budgets — 전체 목록 + 항목
   - POST /api/v1/budgets — 예산 카테고리 생성
   - DELETE /api/v1/budgets/{oid} — 삭제 (항목 포함)
   - POST /api/v1/budgets/{oid}/items — 항목 추가
   - PATCH /api/v1/budgets/{oid}/items/{itemOid} — 항목 수정 (null=기존값 유지)
   - DELETE /api/v1/budgets/{oid}/items/{itemOid} — 항목 삭제
-  - GET /api/v1/budgets/summary — 홈 화면용 요약 (totalPlanned, totalSpent, usageRate)
+  - GET /api/v1/budgets/settings — 전체 예산 설정 조회 (미설정 시 totalBudget=null)
+  - PUT /api/v1/budgets/settings — 전체 예산 설정 저장 (upsert)
+  - GET /api/v1/budgets/summary — 홈 화면용 요약 (totalPlanned, totalSpent, usageRate, totalBudget)
+- BudgetSummaryResponse.totalBudget 추가: usageRate 분모 = totalBudget(설정 시) or totalPlanned
 - ErrorCode: BUDGET_COUPLE_REQUIRED("BUDGET_003") — 미사용이나 하위 호환성 위해 enum 유지
 - schema.sql: weddy_budgets.couple_oid → owner_oid (INDEX idx_owner)
-- DataInitializer: insertBudget()에서 couple_oid → owner_oid 컬럼명 변경
+- schema.sql: weddy_budget_settings 테이블 추가 (owner_oid UNIQUE)
+- DataInitializer: createBudgetSettings() 추가 — ownerOid=20000000000001, 5천만원 (oid=50000000000001)
 ### FE
-- lib/features/budget/data/model: BudgetItemModel, BudgetModel (usageRatio getter), BudgetSummaryModel (usageRatio getter)
+- lib/features/budget/data/model: BudgetItemModel, BudgetModel (usageRatio getter)
+- BudgetSummaryModel: totalBudget(nullable), isOver getter, overRate getter 추가
+- BudgetSettingsModel: lib/features/budget/data/model/budget_settings_model.dart (isConfigured getter)
 - lib/features/budget/presentation/notifier/budget_notifier.dart
-  - sealed BudgetState (Initial/Loading/Loaded/Error) — isCoupleRequired 필드 제거
-  - loadBudgets: 403 처리 제거 (솔로 허용으로 발생 안 함), validateStatus 옵션 제거
+  - sealed BudgetState (Initial/Loading/Loaded/Error)
+  - upsertSettings(int totalAmount) → Future<bool> 추가
   - budgetSummaryProvider: FutureProvider.autoDispose<BudgetSummaryModel?>, 에러→null
+  - budgetSettingsProvider: FutureProvider.autoDispose<BudgetSettingsModel>, 에러→BudgetSettingsModel()
 - lib/features/budget/presentation/screen/budget_screen.dart
-  - Dark Glass 테마, 전체 요약 카드(BackdropFilter blur:20), Accordion 섹션
-  - Dismissible 스와이프 삭제, 예산/항목 추가 다이얼로그
-  - isCoupleRequired 분기 제거 — _buildEmptyState(context)로 단순화
-  - intl NumberFormat('#,###', 'ko_KR') 사용
+  - _BudgetScreenState: _setupAmountCtrl (TextEditingController) — initState/dispose 관리
+  - _buildBody(): settingsAsync.when() → !isConfigured이면 _buildTotalBudgetSetupScreen()
+  - _buildTotalBudgetSetupScreen(): 전체 예산 최초 설정 화면 (SingleChildScrollView)
+  - _buildSummaryCard(budgets, settings): 전체 예산 행 + 편집 아이콘(edit_outlined) 표시
+  - _showEditTotalBudgetDialog(): 전체 예산 수정 다이얼로그, 성공 시 ref.invalidate(budgetSettingsProvider)
+  - 초과율 표시: isOver ? '${초과%}% 초과' : '${사용률}%', 초과 시 _kUrgent
+- home_screen.dart: _BudgetSummaryCard
+  - totalBudget != null이면 '전체 예산' 표시, 없으면 '총 계획'
+  - summary.isOver ? '${overRate}% 초과' 빨간색 : '${usageRate}%'
 - AppRoutes.budget = '/budget' 추가
 - home_screen.dart: _buildBudgetSection → budgetSummaryProvider 연동, _BudgetSummaryCard 위젯
 - home_screen.dart: summary==null 시 "첫 예산 카테고리를 추가해보세요" 카드 (→ /budget)

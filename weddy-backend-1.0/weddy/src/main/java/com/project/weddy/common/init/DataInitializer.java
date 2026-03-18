@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <h3>생성되는 커플 데이터</h3>
  * <ul>
  *   <li>김지훈 + 이수연 커플 (2026-10-15 예식, 예산 5천만원)</li>
- *   <li>체크리스트 3개 카테고리, 항목 11개</li>
+ *   <li>체크리스트 3개 카테고리, 항목 12개</li>
  *   <li>예산 4개 카테고리, 지출 항목 10개</li>
  *   <li>즐겨찾기 업체 3개</li>
  * </ul>
@@ -53,6 +53,7 @@ public class DataInitializer implements CommandLineRunner {
         createCouple();
         createChecklists();
         createBudgets();
+        createBudgetSettings();
         createFavorites();
 
         log.info("[DataInitializer] 테스트 데이터 초기화 완료.");
@@ -150,7 +151,7 @@ public class DataInitializer implements CommandLineRunner {
         insertChecklistItem("31000000000011", "30000000000003", "항공권 예약",                   false, "2026-08-01",   2);
         insertChecklistItem("31000000000012", "30000000000003", "호텔·리조트 예약",              false, "2026-08-15",   3);
 
-        log.info("[DataInitializer] 체크리스트 3개, 항목 13개 생성 완료.");
+        log.info("[DataInitializer] 체크리스트 3개, 항목 12개 생성 완료.");
     }
 
     private void insertChecklist(String oid, String title, String category) {
@@ -220,6 +221,28 @@ public class DataInitializer implements CommandLineRunner {
                 INSERT INTO weddy_budget_items (oid, budget_oid, title, amount, paid_at, memo)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """, oid, budgetOid, title, amount, paidAt, memo);
+    }
+
+    // =========================================================
+    // 전체 예산 설정
+    // =========================================================
+
+    private void createBudgetSettings() {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM weddy_budget_settings WHERE owner_oid = ?",
+                Integer.class, "20000000000001");
+        if (count != null && count > 0) {
+            log.debug("[DataInitializer] 예산 설정 데이터 이미 존재, 건너뜀.");
+            return;
+        }
+        jdbc.update("""
+                INSERT INTO weddy_budget_settings (oid, owner_oid, total_amount)
+                VALUES (?, ?, ?)
+                """,
+                "50000000000001",
+                "20000000000001",
+                50_000_000L);
+        log.info("[DataInitializer] 예산 설정 생성: ownerOid=20000000000001, 5천만원");
     }
 
     // =========================================================

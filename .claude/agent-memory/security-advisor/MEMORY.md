@@ -12,7 +12,7 @@
 - CORS 명시적 오리진 완료 (2026-03-12 패치) - ${CORS_ALLOWED_ORIGINS} 환경변수 기반
 - 사용자 열거 방지 완료 (2026-03-12 패치) - login()에서 user==null/password불일치 동일 UNAUTHORIZED 응답, 타이밍공격 방어
 
-## 현재 미해결 취약점 (2026-03-17 예산 CRUD 검토 후 갱신)
+## 현재 미해결 취약점 (2026-03-19 예산 설정 기능 검토 후 갱신)
 
 ### HIGH
 - RateLimitFilter IP 스푸핑: X-Forwarded-For 헤더 조작으로 Rate Limit 우회 가능
@@ -73,6 +73,8 @@
 - iOS Keychain accessibility: first_unlock -> after_first_unlock_this_device_only 권고
 - 인증서 피닝 (Flutter - 운영 배포 전)
 - 사용자 탈퇴 기능 구현 시 orphan couple 레코드 처리 정책 필요
+- [신규] upsertSettings() 로그에 totalAmount 평문 기록 (2026-03-19 발견) - log.debug로 낮춤 권고
+- [신규] BudgetSettings.updateTotalAmount() 파라미터 long primitive - null 전달 시 NPE (2026-03-19 발견) - Long 박싱 타입으로 전환 권고
 
 ## 보안 부채 항목 (2026-03-15 업데이트)
 - [x] 비밀번호 해시 알고리즘 BCrypt(12) 마이그레이션 완료
@@ -103,6 +105,9 @@
 - [ ] category 필드 허용 문자 패턴 제한 (LOW)
 - [ ] accessToken 만료시간 단축 (24시간 → 15-30분)
 - [ ] 인증서 피닝 (Flutter - 운영 배포 전)
+- [x] GlobalExceptionHandler DataIntegrityViolationException 핸들러 COMMON_409로 교체 완료 (2026-03-19) - COUPLE_ALREADY_CONNECTED 고정 에러코드 제거, 범용 DUPLICATE_REQUEST 적용
+- [x] upsertSettings() 로그 totalAmount 제거 완료 (2026-03-19)
+- [x] BudgetSettings.updateTotalAmount() Long 박싱 타입으로 변경 + null/range 방어 추가 완료 (2026-03-19)
 
 ## 잘 구현된 패턴
 - RefreshToken DB 저장 + 재발급 시 기존 토큰 무효화 (토큰 탈취 방어)
@@ -131,6 +136,10 @@
 - [5단계] @AuthenticationPrincipal userOid 일관 적용 - BudgetController 전 엔드포인트 정상
 - [5단계] coupleOid를 요청 파라미터로 받지 않고 SecurityContext에서 추출 - 커플 연결 우회 공격 방어 올바름
 - [5단계] getBudgets/getSummary에 @Transactional(readOnly = true) 올바르게 적용
+- [5.5단계] BudgetSettingsResponse에 ownerOid/oid/createdAt/updatedAt 모두 제거 - 반복 지적 패턴 사전 방어 성공
+- [5.5단계] UpsertBudgetSettingsRequest @NotNull+@Min(1)+@Max(9_999_999_999L) 3종 세트 올바르게 적용
+- [5.5단계] getSettings()/upsertSettings() 모두 getOwnerOid() 패턴 일관 적용 - IDOR 구조적 차단
+- [5.5단계] weddy_budget_settings.owner_oid UNIQUE KEY 선언 - Race Condition 시 데이터 중복 DB 레벨 차단
 
 ## 반복 패턴 경고 (이 프로젝트에서 자주 발생)
 - Rate Limit 새 API 추가 시 RateLimitFilter.RATE_LIMITED_PATHS 업데이트 누락 위험 (3단계에서 발생)
