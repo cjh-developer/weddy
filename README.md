@@ -14,15 +14,41 @@
 <table>
   <tr>
     <td align="center"><b>로그인</b></td>
-    <td align="center"><b>홈 화면 — 파트너 연결</b></td>
-    <td align="center"><b>홈 화면 — 진행률 · 팁</b></td>
-    <td align="center"><b>홈 화면 — 인기글</b></td>
+    <td align="center"><b>회원가입</b></td>
+    <td align="center"><b>일정 화면 - 예식일 지</b></td>
   </tr>
   <tr>
-    <td><img src="images/example_login.jpg" width="160"/></td>
-    <td><img src="images/example_after_login_sample1.png" width="160"/></td>
-    <td><img src="images/example_after_login_sample2.png" width="160"/></td>
-    <td><img src="images/example_after_login_sample3.png" width="160"/></td>
+    <td><img src="images/01_loginPage.jpg" width="160"/></td>
+    <td><img src="images/02_signPage.jpg" width="160"/></td>
+    <td><img src="images/03_SelectDataPage.jpg" width="160"/></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td align="center"><b>홈화면 - 1</b></td>
+    <td align="center"><b>홈화면 - 2</b></td>
+    <td align="center"><b>홈화면 - 3</b></td>
+    <td align="center"><b>홈화면 - 4</b></td>
+  </tr>
+  <tr>
+    <td><img src="images/04_afterLoginPage1.jpg" width="160"/></td>
+    <td><img src="images/05_afterLoginPage2.jpg" width="160"/></td>
+    <td><img src="images/06_afterLoginPage3.jpg" width="160"/></td>
+    <td><img src="images/06_afterLoginPage4.jpg" width="160"/></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td align="center"><b>예산 - 홈</b></td>
+    <td align="center"><b>예산 - 등록</b></td>
+    <td align="center"><b>예산 - 세부 항목 등록</b></td>
+  </tr>
+  <tr>
+    <td><img src="images/06_afterLoginPage5.jpg" width="160"/></td>
+    <td><img src="images/06_afterLoginPage6.jpg" width="160"/></td>
+    <td><img src="images/06_afterLoginPage7.jpg" width="160"/></td>
   </tr>
 </table>
 
