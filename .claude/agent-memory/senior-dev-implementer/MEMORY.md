@@ -200,6 +200,49 @@
 - home_screen.dart: summary==null 시 "첫 예산 카테고리를 추가해보세요" 카드 (→ /budget)
 - home_screen.dart: 메뉴 그리드 인덱스 1(예산) → context.push(AppRoutes.budget)
 
+## 구현 완료 (6단계 — 일정 관리 & 웨딩 관리, 2026-03-20)
+→ 상세: phase6-schedule-roadmap.md
+- [BE] weddy_schedules, weddy_roadmap_steps, weddy_roadmap_hall_tours, weddy_roadmap_travel_stops 테이블
+- [BE] ScheduleService, ScheduleController (/api/v1/schedules — GET?year&month, POST, PUT, DELETE)
+- [BE] RoadmapService (BUDGET단계↔예산설정 동기화, 투어↔일정 자동등록/연쇄삭제)
+- [BE] RoadmapController (/api/v1/roadmap) — 11개 엔드포인트 (toggle, hall-tours 포함)
+- [BE] DataInitializer: 로드맵 9단계(80000000000001~9), 일정 3개(60000000000001~3)
+- [FE] pubspec.yaml: table_calendar ^3.1.2 추가
+- [FE] AppRoutes.schedule = '/schedule', AppRoutes.roadmap = '/roadmap' 추가
+- [FE] home_screen.dart 메뉴 그리드: '웨딩 관리' 6번째 추가, i==0→/schedule, i==5→/roadmap
+- [FE] lib/features/schedule/ — ScheduleModel, ScheduleNotifier(sealed state), ScheduleScreen
+  - TableCalendar 다크 테마, 카테고리 색상 점 마커, _ScheduleFormBottomSheet
+  - ScaffoldMessenger async gap 전 캡처 패턴 적용
+- [FE] lib/features/roadmap/ — RoadmapStepModel, HallTourModel, RoadmapNotifier, RoadmapScreen
+  - 9단계 카드 목록 (stepType별 아이콘/색상), 낙관적 toggle/delete
+  - _StepDetailBottomSheet: stepType별 특화 폼 (BUDGET/HALL/PLANNER/DRESS/HOME/TRAVEL/GIFT/SANGGYEONRYE/ETC)
+  - HALL 투어 추가 다이얼로그, 삭제 확인 AlertDialog
+  - Navigator/ScaffoldMessenger async gap 전 캡처 패턴
+
+## Vendor Feature (implemented — 7단계 BE)
+- schema.sql: weddy_couple_favorites → weddy_favorites (oid PK, owner_oid, vendor_oid, UNIQUE uq_owner_vendor)
+- DROP 목록에 weddy_favorites + weddy_couple_favorites 둘 다 유지 (기존 DB 마이그레이션용)
+- data.sql: DELETE FROM weddy_couple_favorites → DELETE FROM weddy_favorites
+- domain/vendor/entity: Vendor.java (읽기전용, @NoArgsConstructor PROTECTED, @PrePersist 없음), Favorite.java (@PrePersist OidGenerator)
+- domain/vendor/repository: VendorRepository (JPQL search: category IS NULL 패턴), FavoriteRepository
+- domain/vendor/dto/request: AddFavoriteRequest (@NotBlank @Size(14,14))
+- domain/vendor/dto/response: VendorResponse, VendorDetailResponse (favoriteOid nullable), FavoriteItemResponse, AddFavoriteResponse
+- domain/vendor/service: VendorService (getOwnerOid() 동일 패턴, N+1 방지 IN 쿼리)
+  - getVendors(): vendorRepository.search() → findByOwnerOidAndVendorOidIn() Set<String>으로 isFavorite 결정
+  - getFavorites(): findByOwnerOidOrderByCreatedAtDesc() → findAllById() Map으로 조합
+  - addFavorite(): existsById 확인 → existsByOwnerOidAndVendorOid 확인 → save()
+  - removeFavorite(): findById → ownerOid 일치 확인(IDOR) → delete()
+- domain/vendor/controller: VendorController (/api/v1/vendors) — 5개 엔드포인트
+  - GET /api/v1/vendors?category=&keyword= — 검색
+  - GET /api/v1/vendors/favorites — 즐겨찾기 목록 (정적경로 우선으로 /{vendorOid}보다 먼저 선언)
+  - GET /api/v1/vendors/{vendorOid} — 상세
+  - POST /api/v1/vendors/favorites — 즐겨찾기 추가 (201)
+  - DELETE /api/v1/vendors/favorites/{favoriteOid} — 즐겨찾기 삭제 (204)
+- ErrorCode: VENDOR_NOT_FOUND("VENDOR_001"), FAVORITE_NOT_FOUND("FAVORITE_001"), FAVORITE_ALREADY_EXISTS("FAVORITE_002")
+- DataInitializer: createFavorites() weddy_favorites로 교체 (oid 범위 610000000000XX)
+  - 커플(20000000000001): 그랜드웨딩홀/스튜디오아이엘/뷰티아뜰리에 (61000000000001~3)
+  - 솔로(10000000000003): 로맨티크드레스샵 (61000000000004)
+
 ## Auth Key Patterns
 - DioException handling: check e.error is ApiException first, then ApiException.fromDioException(e)
 - login/signup both call getMyInfo() after to build full UserModel for AuthAuthenticated

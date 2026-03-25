@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>김지훈 + 이수연 커플 (2026-10-15 예식, 예산 5천만원)</li>
  *   <li>체크리스트 3개 카테고리, 항목 12개</li>
  *   <li>예산 4개 카테고리, 지출 항목 10개</li>
- *   <li>즐겨찾기 업체 3개</li>
+ *   <li>즐겨찾기 3개 (커플), 1개 (솔로)</li>
  * </ul>
  *
  * <p>{@code @Profile("dev")} 로 개발 환경에서만 실행된다.
@@ -55,6 +55,8 @@ public class DataInitializer implements CommandLineRunner {
         createBudgets();
         createBudgetSettings();
         createFavorites();
+        createRoadmapSteps();
+        createSchedules();
 
         log.info("[DataInitializer] 테스트 데이터 초기화 완료.");
     }
@@ -251,24 +253,110 @@ public class DataInitializer implements CommandLineRunner {
 
     private void createFavorites() {
         Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM weddy_couple_favorites WHERE couple_oid = ?",
+                "SELECT COUNT(*) FROM weddy_favorites WHERE owner_oid = ?",
                 Integer.class, "20000000000001");
         if (count != null && count > 0) {
             log.debug("[DataInitializer] 즐겨찾기 데이터 이미 존재, 건너뜀.");
             return;
         }
 
-        insertFavorite("20000000000001", "70000000000001"); // 그랜드 웨딩홀
-        insertFavorite("20000000000001", "70000000000002"); // 스튜디오 아이엘
-        insertFavorite("20000000000001", "70000000000004"); // 뷰티 아뜰리에
+        // 커플(20000000000001) → 그랜드 웨딩홀, 스튜디오 아이엘, 뷰티 아뜰리에
+        insertFavorite("61000000000001", "20000000000001", "70000000000001");
+        insertFavorite("61000000000002", "20000000000001", "70000000000002");
+        insertFavorite("61000000000003", "20000000000001", "70000000000004");
 
-        log.info("[DataInitializer] 즐겨찾기 3개 생성 완료.");
+        // 솔로(10000000000003) → 로맨티크 드레스샵
+        insertFavorite("61000000000004", "10000000000003", "70000000000003");
+
+        log.info("[DataInitializer] 즐겨찾기 4개 생성 완료.");
     }
 
-    private void insertFavorite(String coupleOid, String vendorOid) {
+    private void insertFavorite(String oid, String ownerOid, String vendorOid) {
         jdbc.update("""
-                INSERT INTO weddy_couple_favorites (couple_oid, vendor_oid)
-                VALUES (?, ?)
-                """, coupleOid, vendorOid);
+                INSERT INTO weddy_favorites (oid, owner_oid, vendor_oid)
+                VALUES (?, ?, ?)
+                """, oid, ownerOid, vendorOid);
+    }
+
+    // =========================================================
+    // 웨딩 관리 로드맵
+    // =========================================================
+
+    private void createRoadmapSteps() {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM weddy_roadmap_steps WHERE owner_oid = ?",
+                Integer.class, "20000000000001");
+        if (count != null && count > 0) {
+            log.debug("[DataInitializer] 로드맵 단계 데이터 이미 존재, 건너뜀.");
+            return;
+        }
+
+        // stepType, title, sortOrder, details
+        insertRoadmapStep("80000000000001", "BUDGET",       "결혼 예산 설정",  1,
+                "{\"totalBudget\":50000000}");
+        insertRoadmapStep("80000000000002", "HALL",         "웨딩홀 투어",     2,
+                "{\"totalFee\":0,\"guestCount\":0}");
+        insertRoadmapStep("80000000000003", "PLANNER",      "웨딩 플래너 선정",3,
+                "{\"vendors\":[]}");
+        insertRoadmapStep("80000000000004", "DRESS",        "드레스·예복 준비",4,
+                "{\"fittingFee\":0,\"vendors\":[],\"balance\":0}");
+        insertRoadmapStep("80000000000005", "HOME",         "신혼집 마련",     5,
+                "{\"type\":\"JEONSE\",\"agency\":\"\",\"phone\":\"\",\"price\":0,\"location\":\"\"}");
+        insertRoadmapStep("80000000000006", "TRAVEL",       "신혼여행 예약",   6,
+                "{\"purchaseSource\":\"\",\"departure\":\"ICN\",\"destination\":\"\",\"stopovers\":[],\"flightInfo\":\"\",\"airline\":\"\"}");
+        insertRoadmapStep("80000000000007", "GIFT",         "예물·예단 준비",  7,
+                "{\"items\":[]}");
+        insertRoadmapStep("80000000000008", "SANGGYEONRYE", "상견례 준비",     8,
+                "{\"restaurantName\":\"\",\"pricePerPerson\":0,\"guestCount\":0,\"totalAmount\":0,\"extraItems\":[]}");
+        insertRoadmapStep("80000000000009", "ETC",          "기타 준비사항",   9,
+                "{\"items\":[]}");
+
+        log.info("[DataInitializer] 로드맵 단계 9개 생성 완료.");
+    }
+
+    private void insertRoadmapStep(String oid, String stepType, String title,
+                                   int sortOrder, String details) {
+        jdbc.update("""
+                INSERT INTO weddy_roadmap_steps
+                    (oid, owner_oid, step_type, title, is_done, due_date, has_due_date, sort_order, details)
+                VALUES (?, ?, ?, ?, 0, NULL, 0, ?, ?)
+                """, oid, "20000000000001", stepType, title, sortOrder, details);
+    }
+
+    // =========================================================
+    // 테스트 일정
+    // =========================================================
+
+    private void createSchedules() {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM weddy_schedules WHERE owner_oid = ?",
+                Integer.class, "20000000000001");
+        if (count != null && count > 0) {
+            log.debug("[DataInitializer] 일정 데이터 이미 존재, 건너뜀.");
+            return;
+        }
+
+        insertSchedule("60000000000001", "웨딩홀 투어 — 그랜드 웨딩홀",
+                "예식장", "2026-05-10 14:00:00", "2026-05-10 16:00:00",
+                "서울 강남구 논현동 123", "MANUAL", null);
+        insertSchedule("60000000000002", "드레스 1차 피팅",
+                "드레스", "2026-05-20 11:00:00", "2026-05-20 13:00:00",
+                "서울 서초구 방배동 드레스 아뜰리에", "MANUAL", null);
+        insertSchedule("60000000000003", "스튜디오 촬영",
+                "스튜디오", "2026-06-15 10:00:00", "2026-06-15 18:00:00",
+                "서울 마포구 합정동 스튜디오 아이엘", "MANUAL", null);
+
+        log.info("[DataInitializer] 테스트 일정 3개 생성 완료.");
+    }
+
+    private void insertSchedule(String oid, String title, String category,
+                                 String startAt, String endAt, String location,
+                                 String sourceType, String sourceOid) {
+        jdbc.update("""
+                INSERT INTO weddy_schedules
+                    (oid, owner_oid, title, category, is_all_day, start_at, end_at, location, source_type, source_oid)
+                VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)
+                """, oid, "20000000000001", title, category, startAt, endAt,
+                location, sourceType, sourceOid);
     }
 }

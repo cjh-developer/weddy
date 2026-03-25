@@ -9,6 +9,8 @@ import 'package:weddy/features/auth/presentation/screen/sign_up_screen.dart';
 import 'package:weddy/features/budget/presentation/screen/budget_screen.dart';
 import 'package:weddy/features/checklist/presentation/screen/checklist_screen.dart';
 import 'package:weddy/features/home/presentation/screen/home_screen.dart';
+import 'package:weddy/features/roadmap/presentation/screen/roadmap_screen.dart';
+import 'package:weddy/features/schedule/presentation/screen/schedule_screen.dart';
 import 'package:weddy/features/wedding_setup/presentation/screen/wedding_date_setup_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -22,6 +24,8 @@ abstract final class AppRoutes {
   static const String weddingDateSetup = '/setup/wedding-date';
   static const String checklist = '/checklist';
   static const String budget = '/budget';
+  static const String schedule = '/schedule';
+  static const String roadmap = '/roadmap';
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +104,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.budget,
         builder: (context, state) => const BudgetScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.schedule,
+        builder: (context, state) => const ScheduleScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.roadmap,
+        builder: (context, state) => const RoadmapScreen(),
       ),
     ],
     errorBuilder: (context, state) => const HomeScreen(),

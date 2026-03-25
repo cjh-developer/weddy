@@ -18,7 +18,7 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
-DELETE FROM weddy_couple_favorites;
+DELETE FROM weddy_favorites;
 DELETE FROM weddy_budget_items;
 DELETE FROM weddy_budgets;
 DELETE FROM weddy_checklist_items;

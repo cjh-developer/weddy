@@ -279,4 +279,27 @@ public class BudgetService {
         log.info("예산 설정 upsert: ownerOid={}", ownerOid);
         return BudgetSettingsResponse.from(saved);
     }
+
+    /**
+     * 내부 호출용 전체 예산 설정 upsert.
+     * 이미 ownerOid가 결정된 상태에서 RoadmapService 등 내부 서비스가 직접 호출한다.
+     * totalAmount가 null이거나 1 미만이면 아무 처리도 하지 않는다.
+     *
+     * @param ownerOid    소유자 OID (커플 OID 또는 사용자 OID)
+     * @param totalAmount 전체 예산 금액 (null이면 스킵)
+     */
+    @Transactional
+    public void upsertSettingsInternal(String ownerOid, Long totalAmount) {
+        if (totalAmount == null || totalAmount < 1) {
+            log.debug("예산 설정 내부 upsert 스킵: ownerOid={}, totalAmount={}", ownerOid, totalAmount);
+            return;
+        }
+        BudgetSettings settings = budgetSettingsRepository.findByOwnerOid(ownerOid)
+                .orElseGet(() -> BudgetSettings.builder()
+                        .ownerOid(ownerOid)
+                        .build());
+        settings.updateTotalAmount(totalAmount);
+        budgetSettingsRepository.save(settings);
+        log.info("예산 설정 내부 upsert: ownerOid={}, totalAmount={}", ownerOid, totalAmount);
+    }
 }

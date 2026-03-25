@@ -12,7 +12,7 @@
 - CORS 명시적 오리진 완료 (2026-03-12 패치) - ${CORS_ALLOWED_ORIGINS} 환경변수 기반
 - 사용자 열거 방지 완료 (2026-03-12 패치) - login()에서 user==null/password불일치 동일 UNAUTHORIZED 응답, 타이밍공격 방어
 
-## 현재 미해결 취약점 (2026-03-19 예산 설정 기능 검토 후 갱신)
+## 현재 미해결 취약점 (2026-03-20 일정/로드맵 기능 검토 후 갱신)
 
 ### HIGH
 - RateLimitFilter IP 스푸핑: X-Forwarded-For 헤더 조작으로 Rate Limit 우회 가능
@@ -75,6 +75,12 @@
 - 사용자 탈퇴 기능 구현 시 orphan couple 레코드 처리 정책 필요
 - [신규] upsertSettings() 로그에 totalAmount 평문 기록 (2026-03-19 발견) - log.debug로 낮춤 권고
 - [신규] BudgetSettings.updateTotalAmount() 파라미터 long primitive - null 전달 시 NPE (2026-03-19 발견) - Long 박싱 타입으로 전환 권고
+- [신규 6단계] syncBudgetSettings()에서 details JSON totalBudget 값 상한 검증 없음 (2026-03-20 발견)
+  - asLong()이 음수/0/Long.MAX_VALUE 반환 가능 - upsertSettingsInternal() 내 totalAmount < 1 방어가 있으나 Long.MAX_VALUE 등 비정상값 허용
+  - CreateRoadmapStepRequest.details에 @Size(max=2000) 추가 + syncBudgetSettings()에서 totalBudget 범위 체크 필요
+- [신규 6단계] HallTourResponse.totalMealCost 정수 오버플로우 위험 (2026-03-20 발견)
+  - mealPrice(Long) * minGuests(Integer) 곱셈에서 오버플로우 미방어
+  - rentalFee/mealPrice @Max(9_999_999_999L), minGuests @Max(10000) 추가 필요
 
 ## 보안 부채 항목 (2026-03-15 업데이트)
 - [x] 비밀번호 해시 알고리즘 BCrypt(12) 마이그레이션 완료
@@ -108,6 +114,15 @@
 - [x] GlobalExceptionHandler DataIntegrityViolationException 핸들러 COMMON_409로 교체 완료 (2026-03-19) - COUPLE_ALREADY_CONNECTED 고정 에러코드 제거, 범용 DUPLICATE_REQUEST 적용
 - [x] upsertSettings() 로그 totalAmount 제거 완료 (2026-03-19)
 - [x] BudgetSettings.updateTotalAmount() Long 박싱 타입으로 변경 + null/range 방어 추가 완료 (2026-03-19)
+- [ ] CreateScheduleRequest.category @Pattern 추가 - 자유 문자열 허용 (MEDIUM, 6단계)
+- [ ] CreateScheduleRequest.description @Size(max=1000) 추가 - 무제한 TEXT 입력 (MEDIUM, 6단계)
+- [ ] CreateScheduleRequest.alertBefore 허용값 화이트리스트 검증 - @Pattern 추가 (LOW, 6단계)
+- [ ] CreateRoadmapStepRequest.stepType @Pattern 추가 - 허용값 강제화 (MEDIUM, 6단계)
+- [ ] CreateRoadmapStepRequest.details @Size(max=2000) 추가 (MEDIUM, 6단계)
+- [ ] HallTour rentalFee/mealPrice @Max(9_999_999_999L) + minGuests @Max(10000) 추가 (MEDIUM, 6단계)
+- [ ] syncBudgetSettings() totalBudget 범위 체크(1 이상 9_999_999_999L 이하) 추가 (MEDIUM, 6단계)
+- [ ] CreateHallTourRequest.memo @Size(max=500) 추가 (LOW, 6단계)
+- [ ] 소유자당 HallTour/TravelStop 최대 개수 제한 없음 - DoS 가능 (LOW, 6단계)
 
 ## 잘 구현된 패턴
 - RefreshToken DB 저장 + 재발급 시 기존 토큰 무효화 (토큰 탈취 방어)
@@ -140,6 +155,12 @@
 - [5.5단계] UpsertBudgetSettingsRequest @NotNull+@Min(1)+@Max(9_999_999_999L) 3종 세트 올바르게 적용
 - [5.5단계] getSettings()/upsertSettings() 모두 getOwnerOid() 패턴 일관 적용 - IDOR 구조적 차단
 - [5.5단계] weddy_budget_settings.owner_oid UNIQUE KEY 선언 - Race Condition 시 데이터 중복 DB 레벨 차단
+- [6단계] ScheduleService 소유권 검증 올바름: getOwnerOid() + existsByOidAndOwnerOid() 일관 적용
+- [6단계] RoadmapService 소유권 검증 올바름: findByOidAndOwnerOid() 단일 복합 쿼리로 IDOR 방어 (5단계 updateItem 패턴 일관 적용)
+- [6단계] deleteStep() 연쇄 삭제 순서 올바름: hallTour → travelStop → schedule → step
+- [6단계] ScheduleResponse/RoadmapStepResponse에 ownerOid 미포함 - 반복 지적 사전 방어 성공
+- [6단계] toggleDone() findByOidAndOwnerOid 단일 쿼리로 소유권 확인 동시 수행
+- [6단계] createScheduleInternal() 내부 전용 메서드 - 외부 ownerOid 조작 불가 구조 (RoadmapService에서만 호출)
 
 ## 반복 패턴 경고 (이 프로젝트에서 자주 발생)
 - Rate Limit 새 API 추가 시 RateLimitFilter.RATE_LIMITED_PATHS 업데이트 누락 위험 (3단계에서 발생)

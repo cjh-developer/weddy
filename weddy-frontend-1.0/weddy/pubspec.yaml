@@ -59,6 +59,9 @@ dependencies:
   # Fonts
   google_fonts: ^6.2.1
 
+  # Calendar
+  table_calendar: ^3.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

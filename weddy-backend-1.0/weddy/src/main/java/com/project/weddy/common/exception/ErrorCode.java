@@ -39,6 +39,20 @@ public enum ErrorCode {
     BUDGET_COUPLE_REQUIRED("BUDGET_003", "예산 기능은 커플 연결 후 이용할 수 있습니다.", HttpStatus.FORBIDDEN),
     BUDGET_LIMIT_EXCEEDED("BUDGET_004", "예산 카테고리는 최대 20개까지 생성할 수 있습니다.", HttpStatus.BAD_REQUEST),
 
+    // 업체 / 즐겨찾기
+    VENDOR_NOT_FOUND("VENDOR_001", "업체를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    FAVORITE_NOT_FOUND("FAVORITE_001", "즐겨찾기를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    FAVORITE_ALREADY_EXISTS("FAVORITE_002", "이미 즐겨찾기한 업체입니다.", HttpStatus.CONFLICT),
+
+    // 일정
+    SCHEDULE_NOT_FOUND("SCHEDULE_001", "일정을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    // 웨딩 관리 로드맵
+    ROADMAP_STEP_NOT_FOUND("ROADMAP_001", "웨딩 관리 단계를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    ROADMAP_HALL_TOUR_NOT_FOUND("ROADMAP_002", "투어 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    ROADMAP_STEP_LIMIT_EXCEEDED("ROADMAP_003", "웨딩 관리 단계는 최대 20개까지 생성할 수 있습니다.", HttpStatus.BAD_REQUEST),
+    ROADMAP_TRAVEL_STOP_NOT_FOUND("ROADMAP_004", "경유지 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
     // 공통
     VALIDATION_FAILED("COMMON_001", "입력값 검증에 실패했습니다.", HttpStatus.BAD_REQUEST),
     DUPLICATE_REQUEST("COMMON_409", "중복 요청입니다. 잠시 후 다시 시도해주세요.", HttpStatus.CONFLICT),

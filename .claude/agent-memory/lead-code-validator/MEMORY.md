@@ -64,14 +64,8 @@
 - 결과: 그라디언트/배경 이미지가 표시되지 않고, backgroundColor:transparent이면 AppBar 완전 투명
 - 해결: flexibleSpace 제거 후 backgroundColor 직접 지정, 또는 expandedHeight를 kToolbarHeight 이상으로 설정
 
-### [PATTERN] 파일 내 중복 헬퍼 메서드 top-level 추출 누락
-- _showComingSoon 같은 BuildContext 기반 헬퍼가 StatelessWidget/State에 각각 중복 정의되는 패턴
-- 파일 레벨 top-level 함수로 추출하여 재사용할 것
-
-### [PATTERN] go_router errorBuilder에 HomeScreen 반환
-- errorBuilder: (context, state) => const HomeScreen() 패턴은 잠재적 무한 루프 위험
-- redirect 로직이 다시 트리거되어 예상치 못한 화면 전환 발생 가능
-- 권장: 전용 404 위젯 반환 또는 Scaffold+Text("페이지를 찾을 수 없습니다.") 사용
+### [PATTERN] 기타 FE
+- 중복 헬퍼 → top-level 함수 추출 / go_router errorBuilder: HomeScreen 금지 → 전용 404 위젯
 
 ## Files Reviewed
 - `lib/main.dart` - WidgetsFlutterBinding.ensureInitialized() 추가됨, unauthorizedCallbackProvider override 추가됨
@@ -194,41 +188,13 @@
 - 프로파일 분기 또는 조건부 SecurityFilterChain 등록으로 개발 환경에서만 허용 필요
 
 ### Flutter flutter_dotenv 패턴 (확정)
-- .env, .env.production 을 pubspec.yaml assets에 등록 → 파일이 반드시 존재해야 빌드 성공
-- .gitignore에서 .env를 exclude하면 팀원/CI 환경에서 빌드 실패 → 두 가지 전략 중 선택 필요:
-  전략 A (현재 채택): .env를 gitignore하지 않고 커밋 (민감 정보 없을 때)
-  전략 B: .gitignore에 추가 + CI에서 환경변수로 파일 생성 (민감 정보 있을 때)
+- .env, .env.production pubspec.yaml assets 등록 필수
+- 전략 A (현재): gitignore 미포함 커밋 / 전략 B: gitignore + CI 파일 생성
 - .env.example은 assets에 포함하지 않음 (실제 로드 대상이 아님)
 - dotenv.load() → WidgetsFlutterBinding.ensureInitialized() 다음, runApp() 이전 순서 필수
 
-### [PATTERN] Spring Data JPA deleteByX() @Modifying/@Transactional 생략 가능 조건
-- SimpleJpaRepository에 @Transactional이 기본 적용되어 있으므로 deleteByXxx()는 별도 어노테이션 없이 동작
-- 단, 상위 @Transactional이 이미 있는 Service에서 호출 시 동일 트랜잭션에 참여하므로 정상
-- deleteById()와 deleteByXxx()가 같은 트랜잭션 내에서 순서대로 실행되므로 자식 → 부모 순서 삭제가 정상
-
-### [PATTERN] Spring Data JPA 3.x JPQL LIMIT 절 지원 (Spring Boot 3.2.x)
-- Spring Data JPA 3.x (Hibernate 6.x) 부터 JPQL에서 LIMIT :param 절이 공식 지원됨
-- Spring Boot 3.2.3 = Hibernate 6.4.x → LIMIT :limit 파라미터 바인딩 정상 동작
-- NULLS LAST도 JPQL에서 Hibernate 6.x부터 공식 지원
-- 단, 이전 버전(Spring Boot 2.x, Hibernate 5.x)에서는 Pageable 또는 네이티브 쿼리 사용해야 함
-
-### [CRITICAL] ChecklistService.updateItem() — findById + validateItemOwnership 중복 DB 조회
-- findById()로 엔티티를 조회한 직후 validateItemOwnership()(existsByOidAndChecklistOid())을 추가 호출
-- 동일한 oid에 대해 EXISTS 쿼리가 중복 실행됨 (불필요한 DB 조회)
-- 해결: findById 결과의 item.checklistOid == checklistOid 비교로 인메모리 검증으로 대체
-
-### [PATTERN] FE toggleItem() 낙관적 업데이트 후 서버 동기화 시 오류 상태 + loadChecklists() 경쟁 조건
-- toggleItem DioException 블록에서 loadChecklists() 호출 후 즉시 ChecklistError state로 덮어쓰기
-- loadChecklists()가 비동기이므로 에러 표시 후 상태가 ChecklistLoaded로 전환됨 → SnackBar와 목록 갱신 타이밍 불일치
-- 해결: loadChecklists() 완료 후 에러 상태 설정, 또는 에러 상태 설정 후 loadChecklists()
-
-### [PATTERN] ChecklistItemModel.dueDate: DateTime? vs LocalDate 불일치
-- 서버 응답 dueDate는 "yyyy-MM-dd" 형식 (DATE 컬럼)
-- FE에서 DateTime.parse("2024-03-15") 는 "2024-03-15T00:00:00.000" 으로 파싱됨 (UTC 기준)
-- 화면 표시 시 로컬 타임존이 다를 경우 날짜가 하루 밀릴 수 있음
-- 해결: DateTime.parse 후 .toLocal() 호출, 또는 날짜만 사용하는 경우 time component 무시
-
-### [PATTERN] /checklist 라우트 인증 가드 — redirect 로직 포괄적용 확인
-- app_router.dart redirect: AuthUnauthenticated → AppRoutes.login 반환 → /checklist 포함 모든 경로 보호됨
-- 별도 checklist 전용 가드 불필요 (글로벌 redirect가 올바르게 처리)
-- initState에서 ChecklistInitial 체크 후 loadChecklists() 호출 패턴이 올바른 지연 로딩 패턴임
+### [PATTERN] 일정/웨딩관리 도메인 패턴
+- 상세 내용: patterns-schedule-roadmap.md 참조
+- 핵심: BUDGET details key = totalBudget, SANGGYEONRYE = restaurantName/extraItems, TRAVEL = purchaseSource/stopovers
+- RoadmapStep.update()에 clearDueDate 파라미터 추가됨 (null 명시 지우기 지원)
+- ROADMAP_TRAVEL_STOP_NOT_FOUND(ROADMAP_004) ErrorCode 추가됨

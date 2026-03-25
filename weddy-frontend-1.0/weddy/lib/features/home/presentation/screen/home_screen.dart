@@ -628,6 +628,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       (icon: Icons.store, label: '업체'),
       (icon: Icons.people, label: '하객'),
       (icon: Icons.home, label: '가전·혼수'),
+      (icon: Icons.auto_awesome, label: '웨딩 관리'),
     ];
     const menuColors = [
       _kIconCalendar,
@@ -635,6 +636,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _kIconStore,
       _kIconGuest,
       _kIconHome,
+      Color(0xFFF472B6), // 라이트 핑크 — 웨딩 관리
     ];
 
     return GridView.builder(
@@ -658,9 +660,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
         return GestureDetector(
           onTap: () {
-            if (i == 1) {
-              // 예산 탭 → /budget 이동
+            if (i == 0) {
+              context.push(AppRoutes.schedule);
+            } else if (i == 1) {
               context.push(AppRoutes.budget);
+            } else if (i == 5) {
+              context.push(AppRoutes.roadmap);
             } else {
               _showComingSoon(context);
             }

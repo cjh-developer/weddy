@@ -4,6 +4,159 @@
 
 ---
 
+## [6.1단계] 일정 관리 UI 개선 — 주간/일별 뷰 + 로드맵-일정 자동 연동 (2026-03-25)
+
+### Added — Frontend
+
+| 파일 | 내용 |
+|------|------|
+| `lib/features/schedule/presentation/screen/schedule_screen.dart` | `_ViewMode` enum (monthly/weekly/daily), 상단 뷰 모드 토글 버튼 3종 |
+| `lib/features/schedule/presentation/screen/schedule_screen.dart` | `_buildWeeklyView()` — 7일 타일 + 카테고리 색상 점 마커 + 주 이동 네비게이션 |
+| `lib/features/schedule/presentation/screen/schedule_screen.dart` | `_buildDailyView()` — 종일/시간 구분 리스트 + 날짜 네비게이션 |
+| `lib/features/schedule/presentation/notifier/schedule_notifier.dart` | `loadSchedulesForRange(DateTime start, DateTime end)` — 주간 뷰 월 경계 처리, 루프 내 mounted 체크 |
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `lib/features/schedule/presentation/screen/schedule_screen.dart` | `_prevDay`/`_nextDay` 월 경계 감지 방식 변경 — ScheduleLoaded.year 대신 이전 `_selectedDay.month`와 직접 비교 후 `loadSchedules` 재조회 |
+
+### Added — Backend
+
+| 파일 | 내용 |
+|------|------|
+| `domain/roadmap/service/RoadmapService.java` | `getScheduleCategoryForStepType(stepType)` 헬퍼 (HALL→예식장, PLANNER→플래너, DRESS→드레스, TRAVEL→신혼여행, GIFT→예물, SANGGYEONRYE→상견례, default→기타) |
+| `domain/roadmap/service/RoadmapService.java` | `syncRoadmapSchedule(ownerOid, step)` — deleteBySourceOid 후 조건부 createScheduleInternal (sourceType="ROADMAP") |
+
+### Changed — Backend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `domain/roadmap/service/RoadmapService.java` | `createStep()` — hasDueDate=true && dueDate!=null 시 일정 자동 등록 |
+| `domain/roadmap/service/RoadmapService.java` | `updateStep()` — dueDate/hasDueDate/clearDueDate 변경 시에만 syncRoadmapSchedule 호출 (title 단독 변경은 동기화 제외, OID 안정성 보장) |
+
+### Key Design Decisions
+
+| 결정 | 이유 |
+|------|------|
+| 월 경계 감지 직접 비교 | notifier의 ScheduleLoaded.year보다 `_selectedDay.month` 직접 비교가 상태 의존성 없이 안전 |
+| updateStep() 조건부 동기화 | title만 변경할 때 일정 OID가 교체되면 외부 참조가 끊기므로 날짜 변경 시에만 재동기화 |
+| syncRoadmapSchedule 분리 | createStep/updateStep 양쪽에서 재사용하기 위해 독립 헬퍼로 분리 |
+
+---
+
+## [6단계] 일정 관리 & 웨딩 관리 (2026-03-20)
+
+### Added — Backend
+
+**새 테이블 (schema.sql)**
+
+| 테이블 | 주요 컬럼 |
+|--------|---------|
+| `weddy_schedules` | owner_oid, title, category, is_all_day, start_at, end_at, location, alert_before, source_type, source_oid |
+| `weddy_roadmap_steps` | owner_oid, step_type(BUDGET|HALL|PLANNER|DRESS|HOME|TRAVEL|GIFT|SANGGYEONRYE|ETC), title, is_done, due_date, has_due_date, sort_order, details(TEXT/JSON) |
+| `weddy_roadmap_hall_tours` | step_oid, hall_name, tour_date, location, rental_fee, meal_price, min_guests, memo |
+| `weddy_roadmap_travel_stops` | step_oid, stop_order, city |
+
+**새 API 엔드포인트**
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/v1/schedules` | 월별 일정 목록 |
+| POST | `/api/v1/schedules` | 일정 생성 |
+| GET | `/api/v1/schedules/{oid}` | 일정 상세 |
+| PUT | `/api/v1/schedules/{oid}` | 일정 수정 |
+| DELETE | `/api/v1/schedules/{oid}` | 일정 삭제 |
+| GET | `/api/v1/roadmap` | 로드맵 전체 단계 목록 |
+| POST | `/api/v1/roadmap` | 단계 생성 |
+| GET | `/api/v1/roadmap/{oid}` | 단계 상세 |
+| PUT | `/api/v1/roadmap/{oid}` | 단계 수정 |
+| DELETE | `/api/v1/roadmap/{oid}` | 단계 삭제 (연쇄) |
+| PATCH | `/api/v1/roadmap/{oid}/toggle` | 완료/미완료 토글 |
+| GET | `/api/v1/roadmap/{oid}/hall-tours` | 투어 목록 |
+| POST | `/api/v1/roadmap/{oid}/hall-tours` | 투어 추가 (일정 자동 등록) |
+| DELETE | `/api/v1/roadmap/{oid}/hall-tours/{tourOid}` | 투어 삭제 |
+| POST | `/api/v1/roadmap/{oid}/travel-stops` | 여행 경유지 추가 |
+| DELETE | `/api/v1/roadmap/{oid}/travel-stops/{stopOid}` | 경유지 삭제 |
+
+**새 파일**
+
+| 파일 | 내용 |
+|------|------|
+| `domain/schedule/entity/Schedule.java` | 일정 엔티티 (oid PK, owner_oid INDEX, source_type/source_oid 역추적용) |
+| `domain/schedule/repository/ScheduleRepository.java` | findByOidAndOwnerOid() TOCTOU 방지 |
+| `domain/schedule/service/ScheduleService.java` | 소유권 검증, createScheduleInternal() 내부 메서드 |
+| `domain/schedule/controller/ScheduleController.java` | 5개 엔드포인트 |
+| `domain/roadmap/entity/RoadmapStep.java` | 로드맵 단계 엔티티 (details TEXT/JSON) |
+| `domain/roadmap/entity/HallTour.java` | 웨딩홀 투어 서브 엔티티 |
+| `domain/roadmap/entity/TravelStop.java` | 여행 경유지 서브 엔티티 |
+| `domain/roadmap/service/RoadmapService.java` | syncBudgetSettings(), createScheduleInternal() 연동, deleteStep() 연쇄 삭제 |
+| `domain/roadmap/controller/RoadmapController.java` | 11개 엔드포인트 |
+
+**ErrorCode 추가**
+
+| 코드 | 의미 |
+|------|------|
+| SCHEDULE_001 | SCHEDULE_NOT_FOUND |
+| ROADMAP_001 | ROADMAP_STEP_NOT_FOUND |
+| ROADMAP_002 | ROADMAP_HALL_TOUR_NOT_FOUND |
+| ROADMAP_003 | ROADMAP_STEP_LIMIT_EXCEEDED |
+| ROADMAP_004 | ROADMAP_TRAVEL_STOP_NOT_FOUND |
+
+**BudgetService 추가**
+
+| 메서드 | 설명 |
+|--------|------|
+| `upsertSettingsInternal(String ownerOid, Long totalAmount)` | RoadmapService BUDGET 단계에서 내부 호출용, 범위 1~9_999_999_999 |
+
+**DataInitializer 추가**
+- 9단계 자동 생성: OID 80000000000001~80000000000009, 커플 소유 (BUDGET/HALL/PLANNER/DRESS/HOME/TRAVEL/GIFT/SANGGYEONRYE/ETC)
+
+### Added — Frontend
+
+| 파일 | 내용 |
+|------|------|
+| `lib/features/schedule/data/model/schedule_model.dart` | ScheduleModel, categoryColor() static (11개 카테고리 색상 매핑) |
+| `lib/features/schedule/presentation/notifier/schedule_notifier.dart` | sealed state, loadSchedules/createSchedule/deleteSchedule/changeMonth |
+| `lib/features/schedule/presentation/screen/schedule_screen.dart` | TableCalendar 다크 테마, 카테고리 색상 마커, _ScheduleFormBottomSheet(FAB) |
+| `lib/features/roadmap/data/model/roadmap_step_model.dart` | RoadmapStepModel, stepIcon/stepColor/defaultTitle/dDayText static |
+| `lib/features/roadmap/data/model/hall_tour_model.dart` | HallTourModel |
+| `lib/features/roadmap/presentation/notifier/roadmap_notifier.dart` | 낙관적 toggleDone/deleteStep |
+| `lib/features/roadmap/presentation/screen/roadmap_screen.dart` | 9단계 카드 리스트, _StepDetailBottomSheet(stepType 분기 9종) |
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `pubspec.yaml` | `table_calendar: ^3.1.2` 추가 |
+| `lib/core/router/app_router.dart` | AppRoutes.schedule = '/schedule', AppRoutes.roadmap = '/roadmap' 추가 |
+| `lib/features/home/presentation/screen/home_screen.dart` | 메뉴 그리드 5개 → 6개 (3열 2행), "웨딩 관리" 버튼(Icons.auto_awesome, 0xFFF472B6) 추가, index 0 → /schedule, index 5 → /roadmap |
+
+### Security — Backend
+
+| 항목 | 내용 |
+|------|------|
+| category @Pattern | 한글/영문/숫자 1~30자 화이트리스트 |
+| description/location @Size | max=1000/200 |
+| alertBefore @Pattern | 화이트리스트 (NONE|5M|15M|30M|1H|1D 등) |
+| stepType @Pattern | BUDGET|HALL|PLANNER|DRESS|HOME|TRAVEL|GIFT|SANGGYEONRYE|ETC |
+| details @Size | max=2000 |
+| rentalFee/mealPrice @Max | 9_999_999_999L |
+| minGuests @Min/@Max | 1~10000 |
+| memo @Size | max=500 |
+| findByOidAndOwnerOid() | existsBy+findById 이중 조회 → 단일 조건 쿼리로 TOCTOU 방지 |
+
+### Key Design Decisions
+
+| 결정 | 이유 |
+|------|------|
+| RoadmapStep.details: TEXT/JSON | 단계 유형별 서브 테이블 9개 생성 대신 TEXT 컬럼에 JSON 저장 → 스키마 단순화, stepType별 분기는 서비스 레이어에서 처리 |
+| createScheduleInternal() | 웨딩홀 투어 저장 시 일정 자동 등록을 위해 ownerOid 직접 파라미터로 받는 내부 메서드 분리 |
+| deleteStep() 연쇄 삭제 순서 | hall_tours(+ 연결 일정) → travel_stops → schedules(source_oid) → step — FK 없는 환경에서 고아 레코드 방지 |
+| 9단계 자동 생성 | DataInitializer에서 커플 생성 직후 9단계 기본 로드맵 자동 생성 → 신규 커플 온보딩 UX 개선 |
+
+---
+
 ## [5.1단계] 예산 화면 UX 개선 — 전체 예산 다이얼로그 전환 (2026-03-19)
 
 ### Changed — Frontend
