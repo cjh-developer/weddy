@@ -38,6 +38,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BudgetService {
 
+    private static final String ROADMAP_BUDGET_CATEGORY = "[로드맵] 결혼예산";
+    private static final long MAX_ITEM_AMOUNT = 9_999_999_999L;
+    private static final int MAX_BUDGET_ITEMS = 30;
+
     private final BudgetRepository budgetRepository;
     private final BudgetItemRepository budgetItemRepository;
     private final BudgetSettingsRepository budgetSettingsRepository;
@@ -278,6 +282,102 @@ public class BudgetService {
         BudgetSettings saved = budgetSettingsRepository.save(settings);
         log.info("예산 설정 upsert: ownerOid={}", ownerOid);
         return BudgetSettingsResponse.from(saved);
+    }
+
+    /**
+     * 로드맵 BUDGET 단계의 budgetItems 배열을 예산 관리에 반영한다.
+     * "[로드맵] 결혼예산" 카테고리 예산을 find-or-create 후,
+     * 기존 항목을 전부 삭제하고 새 항목을 생성한다.
+     *
+     * <p>각 항목 구조: {"name": "항목명", "deposit": 계약금, "balance": 잔금}
+     * 계약금이 있으면 "항목명 계약금" 항목 생성, 잔금이 있으면 "항목명 잔금" 항목 생성.
+     *
+     * @param ownerOid 소유자 OID
+     * @param items    로드맵 budgetItems 배열
+     */
+    @Transactional
+    public void syncBudgetItemsFromRoadmap(String ownerOid, java.util.List<java.util.Map<String, Object>> items) {
+        // 배열 크기 상한 검증 (DoS 방지)
+        if (items.size() > MAX_BUDGET_ITEMS) {
+            log.warn("로드맵 예산 항목 배열 크기 초과, 동기화 스킵: ownerOid={}, size={}", ownerOid, items.size());
+            return;
+        }
+
+        // 유효한 항목이 없으면 기존 데이터 초기화 후 종료 (빈 카테고리 노출 방지)
+        boolean hasValidItem = items.stream().anyMatch(
+                item -> item.get("name") instanceof String s && !s.trim().isEmpty());
+        if (!hasValidItem) {
+            clearBudgetItemsFromRoadmap(ownerOid);
+            return;
+        }
+
+        Budget budget = budgetRepository.findByOwnerOidAndCategory(ownerOid, ROADMAP_BUDGET_CATEGORY)
+                .orElseGet(() -> {
+                    Budget b = Budget.builder()
+                            .ownerOid(ownerOid)
+                            .category(ROADMAP_BUDGET_CATEGORY)
+                            .plannedAmount(0L)
+                            .build();
+                    return budgetRepository.save(b);
+                });
+
+        // 기존 항목 전부 삭제
+        budgetItemRepository.deleteByBudgetOid(budget.getOid());
+
+        long totalPlanned = 0L;
+        for (java.util.Map<String, Object> item : items) {
+            String name = item.get("name") instanceof String s ? s.trim() : "";
+            if (name.isEmpty() || name.length() > 100) continue;
+
+            long deposit = toValidAmount(item.get("deposit"));
+            long balance = toValidAmount(item.get("balance"));
+
+            if (deposit > 0) {
+                budgetItemRepository.save(BudgetItem.builder()
+                        .budgetOid(budget.getOid())
+                        .title(name + " 계약금")
+                        .amount(deposit)
+                        .build());
+                totalPlanned += deposit;
+            }
+            if (balance > 0) {
+                budgetItemRepository.save(BudgetItem.builder()
+                        .budgetOid(budget.getOid())
+                        .title(name + " 잔금")
+                        .amount(balance)
+                        .build());
+                totalPlanned += balance;
+            }
+        }
+
+        // plannedAmount 업데이트
+        budget.update(null, totalPlanned);
+        log.info("로드맵 예산 동기화: ownerOid={}, 항목수={}, 총액={}", ownerOid, items.size(), totalPlanned);
+    }
+
+    /**
+     * 로드맵 BUDGET 단계 삭제 시 연동 예산 항목을 제거한다.
+     *
+     * @param ownerOid 소유자 OID
+     */
+    @Transactional
+    public void clearBudgetItemsFromRoadmap(String ownerOid) {
+        budgetRepository.findByOwnerOidAndCategory(ownerOid, ROADMAP_BUDGET_CATEGORY)
+                .ifPresent(budget -> {
+                    budgetItemRepository.deleteByBudgetOid(budget.getOid());
+                    budget.update(null, 0L);
+                    log.info("로드맵 예산 항목 초기화: ownerOid={}", ownerOid);
+                });
+    }
+
+    /**
+     * 로드맵 예산 항목 금액을 안전한 범위로 변환한다.
+     * 음수, 0, MAX_ITEM_AMOUNT 초과 값은 0으로 처리한다.
+     */
+    private long toValidAmount(Object raw) {
+        if (!(raw instanceof Number n)) return 0L;
+        long v = n.longValue();
+        return (v > 0 && v <= MAX_ITEM_AMOUNT) ? v : 0L;
     }
 
     /**

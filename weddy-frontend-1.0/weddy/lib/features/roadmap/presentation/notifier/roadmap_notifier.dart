@@ -187,6 +187,44 @@ class RoadmapNotifier extends StateNotifier<RoadmapState> {
     }
   }
 
+  /// 새 로드맵 단계를 생성한다.
+  Future<bool> createStep({
+    required String stepType,
+    required String title,
+    DateTime? dueDate,
+    bool hasDueDate = false,
+  }) async {
+    try {
+      String fmtDate(DateTime d) =>
+          '${d.year.toString().padLeft(4, '0')}-'
+          '${d.month.toString().padLeft(2, '0')}-'
+          '${d.day.toString().padLeft(2, '0')}';
+
+      final body = <String, dynamic>{
+        'stepType': stepType,
+        'title': title,
+        'hasDueDate': hasDueDate,
+        if (hasDueDate && dueDate != null) 'dueDate': fmtDate(dueDate),
+        'details': '{}',
+      };
+
+      await _dio.post('/roadmap', data: body);
+      if (!mounted) return false;
+      await loadSteps();
+      return true;
+    } on DioException catch (e) {
+      if (!mounted) return false;
+      state = e.error is ApiException
+          ? RoadmapError((e.error as ApiException).message)
+          : RoadmapError(ApiException.fromDioException(e).message);
+      return false;
+    } catch (_) {
+      if (!mounted) return false;
+      state = const RoadmapError('단계 생성 중 오류가 발생했습니다.');
+      return false;
+    }
+  }
+
   /// 웨딩홀 투어를 추가한다.
   Future<bool> addHallTour(
       String stepOid, Map<String, dynamic> tourData) async {

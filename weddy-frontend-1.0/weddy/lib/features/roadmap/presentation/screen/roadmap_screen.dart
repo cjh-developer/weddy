@@ -84,6 +84,7 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(),
+      floatingActionButton: _buildFab(),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -272,6 +273,30 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
     );
   }
 
+  Widget _buildFab() {
+    return FloatingActionButton.extended(
+      backgroundColor: _kPink,
+      foregroundColor: Colors.white,
+      icon: const Icon(Icons.add, size: 20),
+      label: const Text('단계 추가', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      onPressed: () {
+        final scaffoldContext = context;
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => _AddStepBottomSheet(
+            scaffoldContext: scaffoldContext,
+            notifier: ref.read(roadmapNotifierProvider.notifier),
+            existingStepTypes: (ref.read(roadmapNotifierProvider) is RoadmapLoaded)
+                ? (ref.read(roadmapNotifierProvider) as RoadmapLoaded).steps.map((s) => s.stepType).toList()
+                : [],
+          ),
+        );
+      },
+    );
+  }
+
   void _showStepDetailBottomSheet(
       BuildContext context, RoadmapStepModel step) {
     final scaffoldContext = context;
@@ -440,13 +465,16 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
 
   // BUDGET
   final _budgetAmountCtrl = TextEditingController();
+  final List<Map<String, TextEditingController>> _budgetItems = [];
 
   // HALL — 투어 목록
   List<HallTourModel> _hallTours = [];
   bool _hallToursLoading = false;
 
   // PLANNER
-  final List<TextEditingController> _plannerCtrls = [];
+  final _plannerStudioCtrl = TextEditingController();
+  final _plannerDressCtrl = TextEditingController();
+  final _plannerMakeupCtrl = TextEditingController();
 
   // DRESS
   final _dressFittingFeeCtrl = TextEditingController();
@@ -461,6 +489,8 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
   final _homeAmountCtrl = TextEditingController();
   final _homeLocationCtrl = TextEditingController();
   final List<bool> _homeChecklist = List.filled(5, false);
+  final _homeSubwayCtrl = TextEditingController();
+  final _homeWalkDistCtrl = TextEditingController();
 
   // TRAVEL
   final _travelSourceCtrl = TextEditingController();
@@ -477,6 +507,7 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
   final _sangNameCtrl = TextEditingController();
   final _sangPricePerPersonCtrl = TextEditingController();
   final _sangGuestsCtrl = TextEditingController();
+  final _sangTotalAmountCtrl = TextEditingController();
   DateTime? _sangDate;
   final List<Map<String, TextEditingController>> _sangExtraItems = [];
 
@@ -514,14 +545,28 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
         // BE syncBudgetSettings()와 DataInitializer는 'totalBudget' key를 사용한다.
         _budgetAmountCtrl.text =
             (d['totalBudget'] as num?)?.toString() ?? '';
+        final budgetItemsList = d['budgetItems'] as List<dynamic>? ?? [];
+        for (final item in budgetItemsList) {
+          final m = item as Map<String, dynamic>;
+          _budgetItems.add({
+            'name': TextEditingController(text: m['name'] as String? ?? ''),
+            'deposit': TextEditingController(text: (m['deposit'] as num?)?.toString() ?? ''),
+            'balance': TextEditingController(text: (m['balance'] as num?)?.toString() ?? ''),
+          });
+        }
+        if (_budgetItems.isEmpty) _addBudgetItem();
         break;
       case 'PLANNER':
-        final vendors = d['vendors'] as List<dynamic>? ?? [];
-        for (final v in vendors) {
-          _plannerCtrls.add(TextEditingController(text: v.toString()));
-        }
-        if (_plannerCtrls.isEmpty) {
-          _plannerCtrls.add(TextEditingController());
+        // 신규 포맷
+        _plannerStudioCtrl.text = d['studio'] as String? ?? '';
+        _plannerDressCtrl.text = d['dress'] as String? ?? '';
+        _plannerMakeupCtrl.text = d['makeup'] as String? ?? '';
+        // 기존 vendors[] 레거시 폴백 (구버전 데이터 호환)
+        if (_plannerStudioCtrl.text.isEmpty && _plannerDressCtrl.text.isEmpty) {
+          final vendors = d['vendors'] as List<dynamic>? ?? [];
+          if (vendors.isNotEmpty) _plannerStudioCtrl.text = vendors[0].toString();
+          if (vendors.length > 1) _plannerDressCtrl.text = vendors[1].toString();
+          if (vendors.length > 2) _plannerMakeupCtrl.text = vendors[2].toString();
         }
         break;
       case 'DRESS':
@@ -554,6 +599,8 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
           _homeChecklist[i] =
               i < checks.length ? checks[i] as bool? ?? false : false;
         }
+        _homeSubwayCtrl.text = d['subway'] as String? ?? '';
+        _homeWalkDistCtrl.text = d['walkDistance'] as String? ?? '';
         break;
       case 'TRAVEL':
         _travelSourceCtrl.text = d['purchaseSource'] as String? ?? '';
@@ -592,6 +639,8 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
             (d['pricePerPerson'] as num?)?.toString() ?? '';
         _sangGuestsCtrl.text =
             (d['guestCount'] as num?)?.toString() ?? '';
+        _sangTotalAmountCtrl.text =
+            (d['totalAmount'] as num?)?.toString() ?? '';
         if (d['date'] != null) {
           _sangDate = DateTime.tryParse(d['date'] as String);
         }
@@ -646,6 +695,14 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
     }
   }
 
+  void _addBudgetItem() {
+    _budgetItems.add({
+      'name': TextEditingController(),
+      'deposit': TextEditingController(),
+      'balance': TextEditingController(),
+    });
+  }
+
   void _addGiftItem() {
     _giftItems.add({
       'name': TextEditingController(),
@@ -671,7 +728,12 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
   void dispose() {
     _titleCtrl.dispose();
     _budgetAmountCtrl.dispose();
-    for (final c in _plannerCtrls) { c.dispose(); }
+    for (final m in _budgetItems) {
+      for (final c in m.values) { c.dispose(); }
+    }
+    _plannerStudioCtrl.dispose();
+    _plannerDressCtrl.dispose();
+    _plannerMakeupCtrl.dispose();
     _dressFittingFeeCtrl.dispose();
     for (final c in _dressVendorCtrls) { c.dispose(); }
     _dressBalanceCtrl.dispose();
@@ -679,6 +741,8 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
     _homePhoneCtrl.dispose();
     _homeAmountCtrl.dispose();
     _homeLocationCtrl.dispose();
+    _homeSubwayCtrl.dispose();
+    _homeWalkDistCtrl.dispose();
     for (final c in _travelStopoverCtrls) { c.dispose(); }
     _travelSourceCtrl.dispose();
     _travelDepartureCtrl.dispose();
@@ -691,6 +755,7 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
     _sangNameCtrl.dispose();
     _sangPricePerPersonCtrl.dispose();
     _sangGuestsCtrl.dispose();
+    _sangTotalAmountCtrl.dispose();
     for (final m in _sangExtraItems) {
       for (final c in m.values) { c.dispose(); }
     }
@@ -785,6 +850,35 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
                 date: _dueDate!,
                 onSelected: (d) => setState(() => _dueDate = d),
               ),
+              const SizedBox(height: 6),
+              // D-Day 실시간 표시
+              Builder(builder: (_) {
+                final now = DateTime.now();
+                final today = DateTime(now.year, now.month, now.day);
+                final due = DateTime(_dueDate!.year, _dueDate!.month, _dueDate!.day);
+                final diff = due.difference(today).inDays;
+                String dText;
+                Color dColor;
+                if (diff < 0) {
+                  dText = '${diff.abs()}일 지남';
+                  dColor = _kUrgent;
+                } else if (diff == 0) {
+                  dText = '오늘';
+                  dColor = _kPink;
+                } else {
+                  dText = 'D-$diff';
+                  dColor = _kDone;
+                }
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: dColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: dColor.withOpacity(0.3)),
+                  ),
+                  child: Text(dText, style: TextStyle(fontSize: 11, color: dColor)),
+                );
+              }),
             ],
 
             const SizedBox(height: 16),
@@ -1030,6 +1124,101 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
         _buildTextField(_budgetAmountCtrl, '예: 50000000', numbersOnly: true),
         const SizedBox(height: 10),
         _buildInfoChip('예산 관리와 자동 연동됩니다'),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildLabel('계약금/잔금 항목'),
+            TextButton.icon(
+              onPressed: () => setState(() => _addBudgetItem()),
+              icon: const Icon(Icons.add, size: 14, color: _kPink),
+              label: const Text('항목 추가', style: TextStyle(fontSize: 12, color: _kPink)),
+              style: TextButton.styleFrom(minimumSize: Size.zero, padding: EdgeInsets.zero),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        _buildInfoChip('항목별 계약금·잔금을 입력하면 예산 관리에 자동 반영됩니다'),
+        const SizedBox(height: 10),
+        ..._budgetItems.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final m = entry.value;
+          // 계약금 + 잔금 합산
+          final deposit = int.tryParse(m['deposit']!.text) ?? 0;
+          final balance = int.tryParse(m['balance']!.text) ?? 0;
+          final total = deposit + balance;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0x0FFFFFFF),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0x22FFFFFF)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('항목 ${idx + 1}',
+                        style: const TextStyle(fontSize: 12, color: _kTextMute, fontWeight: FontWeight.w600)),
+                    GestureDetector(
+                      onTap: () {
+                        for (final c in m.values) { c.dispose(); }
+                        setState(() => _budgetItems.removeAt(idx));
+                      },
+                      child: const Icon(Icons.remove_circle_outline, color: _kUrgent, size: 16),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _buildTextField(m['name']!, '항목명 (예: 예식장, 스드메)'),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('계약금 (원)'),
+                          const SizedBox(height: 4),
+                          _buildTextField(m['deposit']!, '예: 1000000', numbersOnly: true),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('잔금 (원)'),
+                          const SizedBox(height: 4),
+                          _buildTextField(m['balance']!, '예: 5000000', numbersOnly: true),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (total > 0) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _kDone.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _kDone.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      '합계: ${_fmtMoney(total)}',
+                      style: const TextStyle(fontSize: 11, color: _kDone),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
@@ -1295,6 +1484,8 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
                                 if (tourDate != null)
                                   'tourDate':
                                       _fmtDate(tourDate!),
+                                if (tourDate != null)
+                                  'scheduleTitle': '$name 투어',
                                 if (locationCtrl
                                     .text.isNotEmpty)
                                   'location': locationCtrl
@@ -1349,53 +1540,19 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildLabel('업체 목록'),
-            TextButton.icon(
-              onPressed: () => setState(() {
-                _plannerCtrls.add(TextEditingController());
-              }),
-              icon: const Icon(Icons.add, size: 14, color: _kPink),
-              label: const Text(
-                '업체 추가',
-                style: TextStyle(fontSize: 12, color: _kPink),
-              ),
-              style: TextButton.styleFrom(
-                minimumSize: Size.zero,
-                padding: EdgeInsets.zero,
-              ),
-            ),
-          ],
-        ),
+        _buildInfoChip('스튜디오/드레스/메이크업 업체를 카테고리별로 입력하세요'),
+        const SizedBox(height: 14),
+        _buildLabel('스튜디오'),
         const SizedBox(height: 6),
-        _buildInfoChip('스드메 자동 분류 기능이 연동됩니다'),
-        const SizedBox(height: 10),
-        ..._plannerCtrls.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final ctrl = entry.value;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildTextField(
-                      ctrl, '업체명을 입력하세요 (예: 웨딩21)'),
-                ),
-                if (_plannerCtrls.length > 1) ...[
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => setState(
-                        () => _plannerCtrls.removeAt(idx)),
-                    child: const Icon(Icons.remove_circle_outline,
-                        color: _kUrgent, size: 20),
-                  ),
-                ],
-              ],
-            ),
-          );
-        }),
+        _buildTextField(_plannerStudioCtrl, '예: 강남 웨딩스튜디오'),
+        const SizedBox(height: 12),
+        _buildLabel('드레스'),
+        const SizedBox(height: 6),
+        _buildTextField(_plannerDressCtrl, '예: 클라라 드레스'),
+        const SizedBox(height: 12),
+        _buildLabel('메이크업'),
+        const SizedBox(height: 6),
+        _buildTextField(_plannerMakeupCtrl, '예: 아름다운 헤어메이크업'),
       ],
     );
   }
@@ -1534,6 +1691,14 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
         _buildLabel('위치'),
         const SizedBox(height: 6),
         _buildTextField(_homeLocationCtrl, '예: 서울 강남구 역삼동'),
+        const SizedBox(height: 12),
+        _buildLabel('인근 지하철역'),
+        const SizedBox(height: 6),
+        _buildTextField(_homeSubwayCtrl, '예: 강남역 (2호선)'),
+        const SizedBox(height: 12),
+        _buildLabel('도보 거리'),
+        const SizedBox(height: 6),
+        _buildTextField(_homeWalkDistCtrl, '예: 도보 10분'),
         const SizedBox(height: 16),
         _buildLabel('필수 체크리스트'),
         const SizedBox(height: 8),
@@ -1722,11 +1887,6 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
 
   // SANGGYEONRYE
   Widget _buildSanggyeonryeForm() {
-    final price =
-        int.tryParse(_sangPricePerPersonCtrl.text) ?? 0;
-    final guests = int.tryParse(_sangGuestsCtrl.text) ?? 0;
-    final total = price * guests;
-
     return StatefulBuilder(
       builder: (ctx, setInnerState) {
         return Column(
@@ -1837,31 +1997,56 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
                 ),
               ],
             ),
-            if (total > 0) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: _kDone.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: _kDone.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.calculate_outlined,
-                        size: 14, color: _kDone),
-                    const SizedBox(width: 8),
-                    Text(
-                      '예상 총 금액: ${_fmtMoney(total)}',
-                      style: const TextStyle(
-                          fontSize: 13, color: _kDone),
+            const SizedBox(height: 12),
+            _buildLabel('전체 금액 (원)'),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _sangTotalAmountCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: '자동 계산 또는 직접 입력',
+                      hintStyle: const TextStyle(color: Color(0x66FFFFFF), fontSize: 14),
+                      filled: true,
+                      fillColor: const Color(0x0FFFFFFF),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0x33FFFFFF)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0x33FFFFFF)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: _kPink, width: 1.5),
+                      ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    final p = int.tryParse(_sangPricePerPersonCtrl.text) ?? 0;
+                    final g = int.tryParse(_sangGuestsCtrl.text) ?? 0;
+                    if (p > 0 && g > 0) {
+                      setState(() => _sangTotalAmountCtrl.text = (p * g).toString());
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _kPink.withOpacity(0.8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('자동계산', style: TextStyle(fontSize: 11, color: Colors.white)),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             _buildLabel('상견례 날짜'),
             const SizedBox(height: 6),
@@ -2050,28 +2235,39 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
       case 'BUDGET':
         // BE syncBudgetSettings()가 'totalBudget' key를 파싱하므로 동일 key 사용
         return {
-          if (_budgetAmountCtrl.text.isNotEmpty)
-            'totalBudget': int.tryParse(_budgetAmountCtrl.text),
+          if (_budgetAmountCtrl.text.isNotEmpty &&
+              int.tryParse(_budgetAmountCtrl.text) != null)
+            'totalBudget': int.parse(_budgetAmountCtrl.text),
+          'budgetItems': _budgetItems.map((m) {
+            return {
+              if (m['name']!.text.isNotEmpty) 'name': m['name']!.text.trim(),
+              if (m['deposit']!.text.isNotEmpty &&
+                  int.tryParse(m['deposit']!.text) != null)
+                'deposit': int.parse(m['deposit']!.text),
+              if (m['balance']!.text.isNotEmpty &&
+                  int.tryParse(m['balance']!.text) != null)
+                'balance': int.parse(m['balance']!.text),
+            };
+          }).where((m) => m.containsKey('name')).toList(),
         };
       case 'PLANNER':
         return {
-          'vendors': _plannerCtrls
-              .map((c) => c.text.trim())
-              .where((s) => s.isNotEmpty)
-              .toList(),
+          if (_plannerStudioCtrl.text.isNotEmpty) 'studio': _plannerStudioCtrl.text.trim(),
+          if (_plannerDressCtrl.text.isNotEmpty) 'dress': _plannerDressCtrl.text.trim(),
+          if (_plannerMakeupCtrl.text.isNotEmpty) 'makeup': _plannerMakeupCtrl.text.trim(),
         };
       case 'DRESS':
         return {
-          if (_dressFittingFeeCtrl.text.isNotEmpty)
-            'fittingFee':
-                int.tryParse(_dressFittingFeeCtrl.text),
+          if (_dressFittingFeeCtrl.text.isNotEmpty &&
+              int.tryParse(_dressFittingFeeCtrl.text) != null)
+            'fittingFee': int.parse(_dressFittingFeeCtrl.text),
           'vendors': _dressVendorCtrls
               .map((c) => c.text.trim())
               .where((s) => s.isNotEmpty)
               .toList(),
-          if (_dressBalanceCtrl.text.isNotEmpty)
-            'balanceAmount':
-                int.tryParse(_dressBalanceCtrl.text),
+          if (_dressBalanceCtrl.text.isNotEmpty &&
+              int.tryParse(_dressBalanceCtrl.text) != null)
+            'balanceAmount': int.parse(_dressBalanceCtrl.text),
           if (_dressBalanceDate != null)
             'balanceDate': _fmtDate(_dressBalanceDate!),
         };
@@ -2082,11 +2278,16 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
             'propertyName': _homeNameCtrl.text.trim(),
           if (_homePhoneCtrl.text.isNotEmpty)
             'contactPhone': _homePhoneCtrl.text.trim(),
-          if (_homeAmountCtrl.text.isNotEmpty)
-            'amount': int.tryParse(_homeAmountCtrl.text),
+          if (_homeAmountCtrl.text.isNotEmpty &&
+              int.tryParse(_homeAmountCtrl.text) != null)
+            'amount': int.parse(_homeAmountCtrl.text),
           if (_homeLocationCtrl.text.isNotEmpty)
             'location': _homeLocationCtrl.text.trim(),
           'checklist': _homeChecklist.toList(),
+          if (_homeSubwayCtrl.text.isNotEmpty)
+            'subway': _homeSubwayCtrl.text.trim(),
+          if (_homeWalkDistCtrl.text.isNotEmpty)
+            'walkDistance': _homeWalkDistCtrl.text.trim(),
         };
       case 'TRAVEL':
         return {
@@ -2115,31 +2316,36 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
                 'brand': m['brand']!.text.trim(),
               if (m['store']!.text.isNotEmpty)
                 'store': m['store']!.text.trim(),
-              if (m['price']!.text.isNotEmpty)
-                'price': int.tryParse(m['price']!.text),
+              if (m['price']!.text.isNotEmpty &&
+                  int.tryParse(m['price']!.text) != null)
+                'price': int.parse(m['price']!.text),
               if (m['detail']!.text.isNotEmpty)
                 'detail': m['detail']!.text.trim(),
             };
           }).toList(),
         };
       case 'SANGGYEONRYE':
-        final price =
-            int.tryParse(_sangPricePerPersonCtrl.text);
+        final price = int.tryParse(_sangPricePerPersonCtrl.text);
         final guests = int.tryParse(_sangGuestsCtrl.text);
+        // totalAmount: 수동 입력값 우선, 없으면 자동계산
+        final totalAmountStr = _sangTotalAmountCtrl.text;
+        final totalAmount = totalAmountStr.isNotEmpty
+            ? int.tryParse(totalAmountStr)
+            : (price != null && guests != null ? price * guests : null);
         return {
           if (_sangNameCtrl.text.isNotEmpty)
             'restaurantName': _sangNameCtrl.text.trim(),
           if (price != null) 'pricePerPerson': price,
           if (guests != null) 'guestCount': guests,
-          if (price != null && guests != null)
-            'totalAmount': price * guests,
+          if (totalAmount != null) 'totalAmount': totalAmount,
           if (_sangDate != null) 'date': _fmtDate(_sangDate!),
           'extraItems': _sangExtraItems.map((m) {
             return {
               if (m['name']!.text.isNotEmpty)
                 'name': m['name']!.text.trim(),
-              if (m['amount']!.text.isNotEmpty)
-                'amount': int.tryParse(m['amount']!.text),
+              if (m['amount']!.text.isNotEmpty &&
+                  int.tryParse(m['amount']!.text) != null)
+                'amount': int.parse(m['amount']!.text),
             };
           }).toList(),
         };
@@ -2149,16 +2355,20 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
             return {
               if (m['name']!.text.isNotEmpty)
                 'name': m['name']!.text.trim(),
-              if (m['amount']!.text.isNotEmpty)
-                'amount': int.tryParse(m['amount']!.text),
-              if (m['guests']!.text.isNotEmpty)
-                'guests': int.tryParse(m['guests']!.text),
+              if (m['amount']!.text.isNotEmpty &&
+                  int.tryParse(m['amount']!.text) != null)
+                'amount': int.parse(m['amount']!.text),
+              if (m['guests']!.text.isNotEmpty &&
+                  int.tryParse(m['guests']!.text) != null)
+                'guests': int.parse(m['guests']!.text),
               if (m['location']!.text.isNotEmpty)
                 'location': m['location']!.text.trim(),
-              if (m['deposit']!.text.isNotEmpty)
-                'deposit': int.tryParse(m['deposit']!.text),
-              if (m['balance']!.text.isNotEmpty)
-                'balance': int.tryParse(m['balance']!.text),
+              if (m['deposit']!.text.isNotEmpty &&
+                  int.tryParse(m['deposit']!.text) != null)
+                'deposit': int.parse(m['deposit']!.text),
+              if (m['balance']!.text.isNotEmpty &&
+                  int.tryParse(m['balance']!.text) != null)
+                'balance': int.parse(m['balance']!.text),
             };
           }).toList(),
         };
@@ -2265,6 +2475,328 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 커스텀 단계 추가 BottomSheet
+// ---------------------------------------------------------------------------
+
+class _AddStepBottomSheet extends StatefulWidget {
+  final BuildContext scaffoldContext;
+  final RoadmapNotifier notifier;
+  final List<String> existingStepTypes;
+
+  const _AddStepBottomSheet({
+    required this.scaffoldContext,
+    required this.notifier,
+    required this.existingStepTypes,
+  });
+
+  @override
+  State<_AddStepBottomSheet> createState() => _AddStepBottomSheetState();
+}
+
+class _AddStepBottomSheetState extends State<_AddStepBottomSheet> {
+  String? _selectedStepType;
+  final _customTitleCtrl = TextEditingController();
+  bool _hasDueDate = false;
+  DateTime? _dueDate;
+  bool _isSaving = false;
+
+  static const _stepInfos = [
+    ('BUDGET', '결혼 예산', Icons.account_balance_wallet),
+    ('HALL', '웨딩홀 투어', Icons.celebration),
+    ('PLANNER', '플래너/예약', Icons.person_outline),
+    ('DRESS', '드레스 투어', Icons.checkroom),
+    ('HOME', '신혼집/부동산', Icons.home_outlined),
+    ('TRAVEL', '항공권/여행', Icons.flight),
+    ('GIFT', '예물/혼수', Icons.card_giftcard),
+    ('SANGGYEONRYE', '상견례', Icons.restaurant),
+    ('ETC', '기타 (직접 입력)', Icons.more_horiz),
+  ];
+
+  @override
+  void dispose() {
+    _customTitleCtrl.dispose();
+    super.dispose();
+  }
+
+  bool _isAlreadyExist(String stepType) {
+    if (stepType == 'ETC') return false;
+    return widget.existingStepTypes.contains(stepType);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0x44FFFFFF),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '단계 추가',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '추가할 로드맵 단계를 선택하세요.',
+              style: TextStyle(fontSize: 12, color: Color(0x66FFFFFF)),
+            ),
+            const SizedBox(height: 16),
+            // 단계 선택 Wrap
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _stepInfos.map((info) {
+                final (type, label, icon) = info;
+                final alreadyExists = _isAlreadyExist(type);
+                final isSelected = _selectedStepType == type;
+                final color = RoadmapStepModel.stepColor(type);
+
+                return GestureDetector(
+                  onTap: alreadyExists ? null : () => setState(() => _selectedStepType = type),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: alreadyExists
+                          ? const Color(0x08FFFFFF)
+                          : isSelected
+                              ? color.withOpacity(0.2)
+                              : const Color(0x10FFFFFF),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: alreadyExists
+                            ? const Color(0x15FFFFFF)
+                            : isSelected
+                                ? color
+                                : const Color(0x30FFFFFF),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          icon,
+                          size: 14,
+                          color: alreadyExists
+                              ? const Color(0x33FFFFFF)
+                              : isSelected
+                                  ? color
+                                  : const Color(0x88FFFFFF),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                            color: alreadyExists
+                                ? const Color(0x33FFFFFF)
+                                : isSelected
+                                    ? color
+                                    : const Color(0xAAFFFFFF),
+                          ),
+                        ),
+                        if (alreadyExists) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.check, size: 10, color: Color(0x44FFFFFF)),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+
+            // ETC 선택 시 제목 직접 입력
+            if (_selectedStepType == 'ETC') ...[
+              const SizedBox(height: 16),
+              const Text(
+                '단계 이름',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xAAFFFFFF)),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _customTitleCtrl,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: '예: 청첩장, 사진촬영, 혼수 준비 등',
+                  hintStyle: const TextStyle(color: Color(0x66FFFFFF), fontSize: 14),
+                  filled: true,
+                  fillColor: const Color(0x0FFFFFFF),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0x33FFFFFF)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0x33FFFFFF)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: _kPink, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
+
+            // 마감일 설정
+            if (_selectedStepType != null) ...[
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '마감일 설정',
+                    style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w500),
+                  ),
+                  Switch(
+                    value: _hasDueDate,
+                    activeColor: _kPink,
+                    onChanged: (v) => setState(() {
+                      _hasDueDate = v;
+                      if (v && _dueDate == null) _dueDate = DateTime.now();
+                    }),
+                  ),
+                ],
+              ),
+              if (_hasDueDate && _dueDate != null) ...[
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _dueDate!,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                      builder: (ctx, child) => Theme(
+                        data: ThemeData.dark().copyWith(
+                          colorScheme: const ColorScheme.dark(
+                            primary: _kPink,
+                            surface: Color(0xFF1E1E2E),
+                          ),
+                        ),
+                        child: child!,
+                      ),
+                    );
+                    if (picked != null) setState(() => _dueDate = picked);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0x0FFFFFFF),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0x33FFFFFF), width: 1),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today_outlined, size: 14, color: _kPink),
+                        const SizedBox(width: 8),
+                        Text(
+                          DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(_dueDate!),
+                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _selectedStepType != null ? _kPink : const Color(0x22FFFFFF),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: (_selectedStepType != null && !_isSaving) ? _onAdd : null,
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text(
+                        '추가',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onAdd() async {
+    final stepType = _selectedStepType!;
+    String title;
+
+    if (stepType == 'ETC') {
+      title = _customTitleCtrl.text.trim();
+      if (title.isEmpty) {
+        ScaffoldMessenger.of(widget.scaffoldContext).showSnackBar(
+          const SnackBar(
+            content: Text('단계 이름을 입력해주세요.'),
+            backgroundColor: Color(0xFF2A2A3E),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    } else {
+      title = RoadmapStepModel.defaultTitle(stepType);
+    }
+
+    setState(() => _isSaving = true);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(widget.scaffoldContext);
+    final ok = await widget.notifier.createStep(
+      stepType: stepType,
+      title: title,
+      dueDate: _hasDueDate ? _dueDate : null,
+      hasDueDate: _hasDueDate,
+    );
+
+    if (mounted) {
+      if (ok) {
+        navigator.pop();
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('단계가 추가되었습니다.'),
+            backgroundColor: Color(0xFF2A2A3E),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        setState(() => _isSaving = false);
+      }
     }
   }
 }

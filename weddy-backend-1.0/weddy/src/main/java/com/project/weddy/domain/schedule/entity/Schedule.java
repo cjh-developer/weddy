@@ -76,7 +76,7 @@ public class Schedule {
      * 자동 생성 출처 OID (웨딩홀 투어 OID 등).
      * sourceType이 MANUAL이면 null이다.
      */
-    @Column(name = "source_oid", length = 14)
+    @Column(name = "source_oid", length = 30)
     private String sourceOid;
 
     @CreationTimestamp

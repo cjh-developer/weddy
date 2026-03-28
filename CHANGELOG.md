@@ -4,6 +4,86 @@
 
 ---
 
+## [6.2단계] 웨딩 관리 로드맵 상세 폼 + 예산 연동 (2026-03-28)
+
+### Added — Backend
+
+| 파일 | 내용 |
+|------|------|
+| `domain/budget/repository/BudgetRepository.java` | `findByOwnerOidAndCategory(String ownerOid, String category)` 추가 |
+| `domain/budget/service/BudgetService.java` | `syncBudgetItemsFromRoadmap(ownerOid, items)` — 배열 크기 제한(30), find-or-create 패턴 |
+| `domain/budget/service/BudgetService.java` | `clearBudgetItemsFromRoadmap(ownerOid)` — BUDGET 단계 삭제 시 연동 항목 전량 삭제 |
+| `domain/budget/service/BudgetService.java` | `toValidAmount(Object raw)` private 헬퍼 — 음수/0/범위초과 → 0L |
+
+**BudgetService 클래스 상수 추가**
+
+| 상수 | 값 | 설명 |
+|------|----|------|
+| `ROADMAP_BUDGET_CATEGORY` | `[로드맵] 결혼예산` | 로드맵 BUDGET 단계 연동 예산 고정 카테고리명 |
+| `MAX_ITEM_AMOUNT` | `9_999_999_999L` | 예산 항목 최대 금액 |
+| `MAX_BUDGET_ITEMS` | `30` | 로드맵 연동 예산 항목 최대 개수 |
+
+### Changed — Backend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `domain/roadmap/service/RoadmapService.java` | `deleteStep()` 단순화 — SANGGYEONRYE 타입 분기 제거, `deleteBySourceOid(stepOid)` + `deleteBySourceOid(stepOid + "_SANG")` 항상 2회 실행 |
+| `domain/roadmap/service/RoadmapService.java` | `syncBudgetItemsFromDetails()` catch 범위 `JsonProcessingException` → `Exception` (convertValue IllegalArgumentException 포함) |
+| `domain/roadmap/service/RoadmapService.java` | `syncSanggyeonryeSchedule()` 로그 `e.getMessage()` → `e.getClass().getSimpleName()` (개인정보 로그 방지) |
+| `domain/roadmap/service/RoadmapService.java` | `syncBudgetItemsFromDetails()`, `syncSanggyeonryeSchedule()`, `syncRoadmapSchedule()` 헬퍼 메서드 명시 분리 |
+| `domain/schedule/entity/Schedule.java` | `source_oid VARCHAR(14)` → `VARCHAR(30)` (stepOid+"_SANG" 19자 저장 허용) |
+| `resources/scripts/schema.sql` | `weddy_schedules.source_oid` 컬럼 VARCHAR(14) → VARCHAR(30) |
+
+### Added — Frontend
+
+| 파일 | 내용 |
+|------|------|
+| `lib/features/roadmap/presentation/notifier/roadmap_notifier.dart` | `createStep()` 메서드 추가 (POST /roadmap) |
+| `lib/features/roadmap/presentation/screen/roadmap_screen.dart` | `_StepDetailBottomSheetState` 9종 stepType별 폼 UI 전체 구현 |
+| `lib/features/roadmap/presentation/screen/roadmap_screen.dart` | `_buildFab()` FAB 단계 추가 버튼 |
+| `lib/features/roadmap/presentation/screen/roadmap_screen.dart` | `_AddStepBottomSheet` — 9종 stepType 선택, ETC 중복 허용, 기존 존재 시 비활성화 |
+
+**9종 stepType 폼 상세**
+
+| stepType | 주요 필드 |
+|----------|---------|
+| BUDGET | budgetItems[](name/deposit/balance), totalBudget, `_addBudgetItem()` 헬퍼 |
+| HALL | 기존 필드 유지 |
+| PLANNER | studio/dress/makeup 3개 고정 스드메 필드 |
+| DRESS | 기존 필드 유지 |
+| HOME | subway/walkDist 추가 필드 |
+| TRAVEL | 기존 필드 유지 |
+| GIFT | 기존 필드 유지 |
+| SANGGYEONRYE | pricePerPerson×guests 자동계산, totalAmount 수동 입력, extraItems, 일정 자동 등록 |
+| ETC | 기존 필드 유지 |
+
+### Security
+
+| 항목 | 내용 |
+|------|------|
+| source_oid VARCHAR 확장 | VARCHAR(14) → VARCHAR(30) — stepOid+"_SANG" 복합 키 저장 가능 |
+| 배열 크기 제한 | syncBudgetItemsFromRoadmap() 항목 최대 30개 + name 길이 100자 제한 |
+| 금액 검증 헬퍼 | toValidAmount(): 음수/0/9_999_999_999 초과 → 0L 처리 (정수 오버플로우 방지) |
+| Exception 포괄 catch | syncBudgetItemsFromDetails() IllegalArgumentException까지 포함 — 처리 실패 시 예산 연동 조용히 스킵 |
+| 개인정보 로그 방지 | syncSanggyeonryeSchedule() e.getMessage() 제거 → 클래스명만 로그 |
+
+**보안 백로그 신규 추가**
+
+| 항목 | 우선순위 |
+|------|----------|
+| deleteBySourceOid()에 ownerOid 조건 없음 — 내부 전용, JavaDoc 명시 권고 | LOW |
+
+### Key Design Decisions
+
+| 결정 | 이유 |
+|------|------|
+| deleteStep() SANGGYEONRYE 분기 제거 | 항상 stepOid + stepOid+"_SANG" 두 sourceOid로 deleteBySourceOid 2회 실행 → 분기 로직 없이 단순화, 향후 상견례 외 복합 일정 추가 시 확장 용이 |
+| source_oid VARCHAR(30) 확장 | stepOid(14) + "_SANG"(5) = 19자 저장 필요, 여유분 포함하여 30자로 확장 |
+| ROADMAP_BUDGET_CATEGORY 클래스 상수 | 서비스·레포지토리 양쪽에서 참조하는 문자열 상수를 BudgetService에 단일 관리 |
+| toValidAmount() 0L 반환 | 유효하지 않은 금액은 저장하지 않고 조용히 스킵 (예외 발생 시 전체 단계 저장 실패 방지) |
+
+---
+
 ## [6.1단계] 일정 관리 UI 개선 — 주간/일별 뷰 + 로드맵-일정 자동 연동 (2026-03-25)
 
 ### Added — Frontend

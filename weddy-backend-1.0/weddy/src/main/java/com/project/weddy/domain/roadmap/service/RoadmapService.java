@@ -28,8 +28,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 웨딩 관리(로드맵) 서비스.
@@ -117,6 +120,12 @@ public class RoadmapService {
         // BUDGET 단계 생성 시 details에서 totalBudget 파싱하여 예산 설정 동기화
         if ("BUDGET".equals(req.getStepType()) && req.getDetails() != null) {
             syncBudgetSettings(ownerOid, req.getDetails());
+            syncBudgetItemsFromDetails(ownerOid, req.getDetails());
+        }
+
+        // SANGGYEONRYE 단계 생성 시 details의 date로 일정 자동 등록
+        if ("SANGGYEONRYE".equals(req.getStepType()) && req.getDetails() != null) {
+            syncSanggyeonryeSchedule(ownerOid, saved, req.getDetails());
         }
 
         // dueDate가 있는 경우 일정 자동 등록
@@ -167,6 +176,12 @@ public class RoadmapService {
         // BUDGET 단계의 details가 변경된 경우 예산 설정 동기화
         if ("BUDGET".equals(step.getStepType()) && req.getDetails() != null) {
             syncBudgetSettings(ownerOid, req.getDetails());
+            syncBudgetItemsFromDetails(ownerOid, req.getDetails());
+        }
+
+        // SANGGYEONRYE 단계의 details가 변경된 경우 상견례 일정 동기화
+        if ("SANGGYEONRYE".equals(step.getStepType()) && req.getDetails() != null) {
+            syncSanggyeonryeSchedule(ownerOid, step, req.getDetails());
         }
 
         // 일정 관련 필드(dueDate/hasDueDate)가 변경된 경우에만 일정 동기화
@@ -208,12 +223,21 @@ public class RoadmapService {
      */
     public void deleteStep(String userOid, String stepOid) {
         String ownerOid = getOwnerOid(userOid);
-        if (!roadmapStepRepository.existsByOidAndOwnerOid(stepOid, ownerOid)) {
-            throw new CustomException(ErrorCode.ROADMAP_STEP_NOT_FOUND);
+        RoadmapStep step = roadmapStepRepository.findByOidAndOwnerOid(stepOid, ownerOid)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROADMAP_STEP_NOT_FOUND));
+
+        // BUDGET 단계 삭제 시 연동 예산 항목 초기화
+        if ("BUDGET".equals(step.getStepType())) {
+            budgetService.clearBudgetItemsFromRoadmap(ownerOid);
         }
+
         hallTourRepository.deleteByStepOid(stepOid);
         travelStopRepository.deleteByStepOid(stepOid);
+        // sourceOid = stepOid 로 연결된 일정 삭제 (sourceType="ROADMAP", "HALL_TOUR" 등)
         scheduleRepository.deleteBySourceOid(stepOid);
+        // sourceOid = stepOid + "_SANG" 로 연결된 일정 삭제 (SANGGYEONRYE 상견례 일정)
+        // SANGGYEONRYE가 아닌 단계에서는 해당 sourceOid가 존재하지 않으므로 항상 실행해도 무관
+        scheduleRepository.deleteBySourceOid(stepOid + "_SANG");
         roadmapStepRepository.deleteById(stepOid);
         log.info("로드맵 단계 삭제 - oid: {}, ownerOid: {}", stepOid, ownerOid);
     }
@@ -266,13 +290,15 @@ public class RoadmapService {
         HallTour saved = hallTourRepository.save(tour);
         log.info("웨딩홀 투어 추가 - tourOid: {}, stepOid: {}", saved.getOid(), stepOid);
 
-        // tourDate가 있고 scheduleTitle이 지정된 경우 일정 자동 등록
-        if (req.getTourDate() != null && req.getScheduleTitle() != null
-                && !req.getScheduleTitle().isBlank()) {
+        // tourDate가 있으면 일정 자동 등록 (scheduleTitle이 없으면 hallName + " 투어" 사용)
+        if (req.getTourDate() != null) {
+            String schedTitle = (req.getScheduleTitle() != null && !req.getScheduleTitle().isBlank())
+                    ? req.getScheduleTitle()
+                    : req.getHallName() + " 투어";
             LocalDateTime tourDateTime = req.getTourDate().atStartOfDay();
             scheduleService.createScheduleInternal(
                     ownerOid,
-                    req.getScheduleTitle(),
+                    schedTitle,
                     "예식장",
                     tourDateTime,
                     "HALL_TOUR",
@@ -419,6 +445,69 @@ public class RoadmapService {
                     step.getOid()
             );
             log.info("로드맵 일정 동기화 - stepOid: {}, dueDate: {}", step.getOid(), step.getDueDate());
+        }
+    }
+
+    /**
+     * BUDGET 단계의 details JSON에서 budgetItems 배열을 파싱하여 예산 항목을 동기화한다.
+     *
+     * @param ownerOid 소유자 OID
+     * @param details  BUDGET 단계의 details JSON 문자열
+     */
+    @SuppressWarnings("unchecked")
+    private void syncBudgetItemsFromDetails(String ownerOid, String details) {
+        try {
+            JsonNode node = objectMapper.readTree(details);
+            if (!node.has("budgetItems") || node.get("budgetItems").isNull()) return;
+
+            JsonNode itemsNode = node.get("budgetItems");
+            if (!itemsNode.isArray()) return;
+
+            List<Map<String, Object>> items = new ArrayList<>();
+            for (JsonNode item : itemsNode) {
+                Map<String, Object> m = objectMapper.convertValue(item, Map.class);
+                items.add(m);
+            }
+            budgetService.syncBudgetItemsFromRoadmap(ownerOid, items);
+        } catch (Exception e) {
+            // JsonProcessingException + convertValue의 IllegalArgumentException 모두 처리
+            log.warn("BUDGET budgetItems 파싱 실패, 예산 항목 동기화 스킵: ownerOid={}, exceptionType={}",
+                    ownerOid, e.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * SANGGYEONRYE 단계의 details JSON에서 date를 파싱하여 상견례 일정을 동기화한다.
+     * sourceType="SANGGYEONRYE", sourceOid=stepOid+"_SANG" 으로 식별한다.
+     *
+     * @param ownerOid 소유자 OID
+     * @param step     로드맵 단계
+     * @param details  SANGGYEONRYE 단계의 details JSON 문자열
+     */
+    private void syncSanggyeonryeSchedule(String ownerOid, RoadmapStep step, String details) {
+        final String sourceOid = step.getOid() + "_SANG";
+        scheduleRepository.deleteBySourceOid(sourceOid);
+        try {
+            JsonNode node = objectMapper.readTree(details);
+            if (!node.has("date") || node.get("date").isNull()) return;
+
+            String dateStr = node.get("date").asText();
+            LocalDate date = LocalDate.parse(dateStr);
+            String restaurantName = node.has("restaurantName") && !node.get("restaurantName").isNull()
+                    ? node.get("restaurantName").asText() : "상견례";
+            String title = restaurantName + " 상견례";
+            scheduleService.createScheduleInternal(
+                    ownerOid,
+                    title,
+                    "상견례",
+                    date.atStartOfDay(),
+                    "SANGGYEONRYE",
+                    sourceOid
+            );
+            log.info("상견례 일정 동기화 - stepOid: {}, date: {}", step.getOid(), date);
+        } catch (Exception e) {
+            log.warn("SANGGYEONRYE date 파싱 실패, 일정 동기화 스킵: ownerOid={}, exceptionType={}",
+                    ownerOid, e.getClass().getSimpleName());
         }
     }
 

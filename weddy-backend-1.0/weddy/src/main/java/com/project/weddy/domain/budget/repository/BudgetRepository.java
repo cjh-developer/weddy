@@ -38,4 +38,14 @@ public interface BudgetRepository extends JpaRepository<Budget, String> {
      * @return 예산 카테고리 수
      */
     long countByOwnerOid(String ownerOid);
+
+    /**
+     * 소유자 OID와 카테고리로 예산을 조회한다.
+     * 로드맵 연동 예산 식별에 사용한다.
+     *
+     * @param ownerOid 소유자 OID
+     * @param category 카테고리명
+     * @return 해당 예산 (없으면 empty)
+     */
+    java.util.Optional<Budget> findByOwnerOidAndCategory(String ownerOid, String category);
 }
