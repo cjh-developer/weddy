@@ -16,13 +16,13 @@ import 'package:weddy/features/auth/presentation/notifier/auth_notifier.dart';
 
 const _kPink = Color(0xFFEC4899);
 const _kDarkPink = Color(0xFFDB2777);
-const _kBgDark1 = Color(0xFF0D0D1A);
-const _kBgDark2 = Color(0xFF1B0929);
+const _kBgDark1 = Color(0xFF080810);
+const _kBgDark2 = Color(0xFF0C0820);
 // Glass layers
 const _kGlass = Color(0x0FFFFFFF);          // white 6%
 const _kGlassBorder = Color(0x38FFFFFF);    // white 22%
-const _kInputFill = Color(0xFF1E1B33);
-const _kInputFillFocus = Color(0xFF2A2550);
+const _kInputFill = Color(0x1AFFFFFF);
+const _kInputFillFocus = Color(0x26FFFFFF);
 // Text
 const _kTextMute = Color(0x66FFFFFF); // white 40%
 
@@ -554,8 +554,7 @@ class _AnimatedFieldState extends State<_AnimatedField> {
             suffixIcon: widget.suffixIcon,
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide:
-                  BorderSide(color: Colors.white.withOpacity(0.20)),
+              borderSide: const BorderSide(color: Color(0x33FFFFFF)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),

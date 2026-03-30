@@ -11,8 +11,8 @@ import 'package:weddy/features/schedule/presentation/notifier/schedule_notifier.
 // 색상 상수 (홈 화면과 동일한 다크 글래스모피즘 팔레트)
 // ---------------------------------------------------------------------------
 
-const _kBg1 = Color(0xFF0D0D1A);
-const _kBg2 = Color(0xFF1B0929);
+const _kBg1 = Color(0xFF080810);
+const _kBg2 = Color(0xFF0C0820);
 const _kGlass = Color(0x14FFFFFF);
 const _kGlassBorder = Color(0x33FFFFFF);
 const _kPink = Color(0xFFEC4899);
@@ -189,8 +189,24 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: isSelected ? _kPink : Colors.transparent,
+            gradient: isSelected
+                ? const LinearGradient(
+                    colors: [_kPink, Color(0xFFF472B6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: isSelected ? null : Colors.transparent,
             borderRadius: BorderRadius.circular(15),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: _kPink.withOpacity(0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: Center(
             child: Text(
@@ -270,6 +286,12 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               todayDecoration: BoxDecoration(
                 color: _kPink.withOpacity(0.25),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: _kPink.withOpacity(0.4),
+                    blurRadius: 8,
+                  ),
+                ],
               ),
               todayTextStyle:
                   const TextStyle(color: _kPink, fontWeight: FontWeight.w700),
@@ -598,11 +620,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                               const EdgeInsets.fromLTRB(12, 8, 12, 80),
                           children: [
                             if (allDayItems.isNotEmpty) ...[
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 6),
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 6),
                                 child: Text(
                                   '종일',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     color: _kTextMute,
                                     fontWeight: FontWeight.w600,
@@ -997,11 +1019,15 @@ class _ScheduleItemCard extends StatelessWidget {
         child: IntrinsicHeight(
           child: Row(
             children: [
-              // 카테고리 색상 바
+              // 카테고리 색상 바 (gradient)
               Container(
                 width: 4,
                 decoration: BoxDecoration(
-                  color: catColor,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [catColor, catColor.withOpacity(0.5)],
+                  ),
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(16),
                     bottomLeft: Radius.circular(16),

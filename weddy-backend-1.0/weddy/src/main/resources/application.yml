@@ -1,6 +1,11 @@
 spring:
   application:
     name: weddy
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 25MB
   datasource:
     url: jdbc:mysql://localhost:3306/weddy?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
     username: weddy
@@ -37,6 +42,9 @@ springdoc:
   swagger-ui:
     enabled: true
     path: /swagger-ui.html
+
+file:
+  upload-dir: ./uploads
 
 logging:
   level:

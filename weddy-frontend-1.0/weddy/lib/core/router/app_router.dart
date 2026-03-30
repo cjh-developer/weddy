@@ -11,6 +11,8 @@ import 'package:weddy/features/checklist/presentation/screen/checklist_screen.da
 import 'package:weddy/features/home/presentation/screen/home_screen.dart';
 import 'package:weddy/features/roadmap/presentation/screen/roadmap_screen.dart';
 import 'package:weddy/features/schedule/presentation/screen/schedule_screen.dart';
+import 'package:weddy/features/vendor/presentation/screen/vendor_detail_screen.dart';
+import 'package:weddy/features/vendor/presentation/screen/vendor_screen.dart';
 import 'package:weddy/features/wedding_setup/presentation/screen/wedding_date_setup_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -26,6 +28,8 @@ abstract final class AppRoutes {
   static const String budget = '/budget';
   static const String schedule = '/schedule';
   static const String roadmap = '/roadmap';
+  static const String vendor = '/vendor';
+  static const String vendorDetail = '/vendor/:oid';
 }
 
 // ---------------------------------------------------------------------------
@@ -111,7 +115,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.roadmap,
-        builder: (context, state) => const RoadmapScreen(),
+        builder: (context, state) => const RoadmapScreen(showBackButton: true),
+      ),
+      GoRoute(
+        path: AppRoutes.vendor,
+        builder: (context, state) => const VendorScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.vendorDetail,
+        builder: (context, state) => VendorDetailScreen(
+          vendorOid: state.pathParameters['oid']!,
+        ),
       ),
     ],
     errorBuilder: (context, state) => const HomeScreen(),

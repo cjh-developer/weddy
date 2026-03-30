@@ -12,8 +12,8 @@ import 'package:weddy/features/checklist/presentation/notifier/checklist_notifie
 // 색상 상수 (홈 화면 Dark Glass 테마 동일 적용)
 // ---------------------------------------------------------------------------
 
-const _kBg1 = Color(0xFF0D0D1A);
-const _kBg2 = Color(0xFF1B0929);
+const _kBg1 = Color(0xFF080810);
+const _kBg2 = Color(0xFF0C0820);
 const _kGlass = Color(0x14FFFFFF);
 const _kGlassBorder = Color(0x33FFFFFF);
 const _kPink = Color(0xFFEC4899);
@@ -562,24 +562,26 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
     required String hint,
     required IconData icon,
   }) {
-    return Container(
-      height: 52,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFDDDDDD), width: 1),
-      ),
-      child: TextField(
-        controller: controller,
-        style: const TextStyle(color: Colors.black87, fontSize: 14),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: Colors.black38, fontSize: 13),
-          prefixIcon: Icon(icon, color: _kPink, size: 18),
-          border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white, fontSize: 14),
+      keyboardAppearance: Brightness.dark,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0x66FFFFFF), fontSize: 13),
+        prefixIcon: Icon(icon, color: _kPink, size: 18),
+        filled: true,
+        fillColor: const Color(0x1AFFFFFF),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0x33FFFFFF)),
         ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _kPink, width: 1.5),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       ),
     );
   }
@@ -645,7 +647,7 @@ class _ChecklistSectionState extends State<_ChecklistSection> {
             onTap: () => setState(() => _expanded = !_expanded),
             behavior: HitTestBehavior.opaque,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+              padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
               child: Row(
                 children: [
                   // 카테고리 배지 또는 기본 아이콘
@@ -721,6 +723,34 @@ class _ChecklistSectionState extends State<_ChecklistSection> {
               ),
             ),
           ),
+          // ── 헤더 하단 진행률 바 ──
+          if (items.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Stack(
+                children: [
+                  Container(
+                    height: 2,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  FractionallySizedBox(
+                    widthFactor: items.isEmpty
+                        ? 0.0
+                        : (doneCount / items.length).clamp(0.0, 1.0),
+                    child: Container(
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: _kDone,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // ── 항목 목록 ──
           AnimatedCrossFade(
             firstChild: Column(
@@ -752,19 +782,20 @@ class _ChecklistSectionState extends State<_ChecklistSection> {
                         child: Container(
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: const Color(0x1AFFFFFF),
                             borderRadius: BorderRadius.circular(10),
-                            border:
-                                Border.all(color: const Color(0xFFDDDDDD)),
+                            border: Border.all(
+                                color: const Color(0x33FFFFFF)),
                           ),
                           child: TextField(
                             controller: _addContentCtrl,
                             style: const TextStyle(
-                                color: Colors.black87, fontSize: 13),
+                                color: Colors.white, fontSize: 13),
+                            keyboardAppearance: Brightness.dark,
                             decoration: const InputDecoration(
                               hintText: '새 항목 추가...',
                               hintStyle: TextStyle(
-                                color: Colors.black38,
+                                color: Color(0x66FFFFFF),
                                 fontSize: 12,
                               ),
                               border: InputBorder.none,
@@ -880,7 +911,8 @@ class _ItemTile extends StatelessWidget {
       ),
       confirmDismiss: (_) async => true,
       onDismissed: (_) => onDelete(),
-      child: Padding(
+      child: Container(
+        color: item.isDone ? const Color(0x0A10B981) : null,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [

@@ -12,7 +12,7 @@
 - CORS 명시적 오리진 완료 (2026-03-12 패치) - ${CORS_ALLOWED_ORIGINS} 환경변수 기반
 - 사용자 열거 방지 완료 (2026-03-12 패치) - login()에서 user==null/password불일치 동일 UNAUTHORIZED 응답, 타이밍공격 방어
 
-## 현재 미해결 취약점 (2026-03-20 일정/로드맵 기능 검토 후 갱신)
+## 현재 미해결 취약점 (2026-03-28 첨부파일 기능 검토 후 갱신)
 
 ### HIGH
 - RateLimitFilter IP 스푸핑: X-Forwarded-For 헤더 조작으로 Rate Limit 우회 가능
@@ -81,6 +81,21 @@
 - [신규 6단계] HallTourResponse.totalMealCost 정수 오버플로우 위험 (2026-03-20 발견)
   - mealPrice(Long) * minGuests(Integer) 곱셈에서 오버플로우 미방어
   - rentalFee/mealPrice @Max(9_999_999_999L), minGuests @Max(10000) 추가 필요
+- [신규 7단계/Vault] AttachmentService.list() IDOR 소유권 검증 완전 부재 (2026-03-28 발견) HIGH
+  - list(refType, refOid) 메서드에 ownerOid 파라미터 없음 - 인증은 되나 인가 없음
+  - ownerOid 파라미터 추가 + validateRefOwnership() 선행 호출 필요
+- [신규 7단계/Vault] application.yml 기본 프로파일에 평문 자격증명 하드코딩 (2026-03-28 발견) HIGH
+  - DB 패스워드, JWT secret, show-sql:true, cors:* 모두 기본 프로파일에 존재
+  - 운영 배포 시 프로파일 미설정 시 개발용 값 그대로 사용 위험
+  - 모든 민감값 환경변수 ${DB_PASSWORD}, ${JWT_SECRET} 등으로 교체 필요
+- [신규 7단계/Vault] 업로드 API Rate Limit 미적용 (2026-03-28 발견) MEDIUM
+  - RATE_LIMITED_PATHS에 /api/v1/attachments 미포함 - 스토리지 소진 DoS 가능
+- [신규 7단계/Vault] originalName 미정제 저장 (2026-03-28 발견) MEDIUM
+  - 경로 구분자, 제어문자 포함 파일명 그대로 DB 저장 - sanitizeFilename() 추가 필요
+- [신규 7단계/Vault] 파일 개수 제한 Race Condition (2026-03-28 발견) MEDIUM
+  - countByRefTypeAndRefOid check-then-act 비원자적 - @Lock(PESSIMISTIC_WRITE) 적용 필요
+- [신규 7단계/Vault] download/deletePhysicalFile() uploadPath 경계 미검증 (2026-03-28 발견) MEDIUM
+  - normalize() 후 startsWith(uploadPath) 검증 없음 - DB 오염 시 파일시스템 탈출 가능
 
 ## 보안 부채 항목 (2026-03-15 업데이트)
 - [x] 비밀번호 해시 알고리즘 BCrypt(12) 마이그레이션 완료
@@ -123,6 +138,14 @@
 - [ ] syncBudgetSettings() totalBudget 범위 체크(1 이상 9_999_999_999L 이하) 추가 (MEDIUM, 6단계)
 - [ ] CreateHallTourRequest.memo @Size(max=500) 추가 (LOW, 6단계)
 - [ ] 소유자당 HallTour/TravelStop 최대 개수 제한 없음 - DoS 가능 (LOW, 6단계)
+- [ ] AttachmentService.list() ownerOid 파라미터 추가 + validateRefOwnership() 선행 호출 (HIGH, 7단계)
+- [ ] application.yml DB패스워드/JWT secret 환경변수 전환 + show-sql false (HIGH, 7단계)
+- [ ] RateLimitFilter RATE_LIMITED_PATHS에 /api/v1/attachments 추가 (MEDIUM, 7단계)
+- [ ] AttachmentService.upload() sanitizeFilename() 추가 (MEDIUM, 7단계)
+- [ ] AttachmentRepository countByRefTypeAndRefOidWithLock @Lock(PESSIMISTIC_WRITE) 추가 (MEDIUM, 7단계)
+- [ ] AttachmentService download/deletePhysicalFile startsWith(uploadPath) 경계 검증 추가 (MEDIUM, 7단계)
+- [ ] AttachmentRepository countByOwnerOid 추가 + 사용자 총 파일 수 제한(200개) (LOW, 7단계)
+- [ ] file.upload-dir 운영환경 절대경로 환경변수 설정 - ${FILE_UPLOAD_DIR:/var/weddy/uploads} (INFO, 7단계)
 
 ## 잘 구현된 패턴
 - RefreshToken DB 저장 + 재발급 시 기존 토큰 무효화 (토큰 탈취 방어)
@@ -161,8 +184,17 @@
 - [6단계] ScheduleResponse/RoadmapStepResponse에 ownerOid 미포함 - 반복 지적 사전 방어 성공
 - [6단계] toggleDone() findByOidAndOwnerOid 단일 쿼리로 소유권 확인 동시 수행
 - [6단계] createScheduleInternal() 내부 전용 메서드 - 외부 ownerOid 조작 불가 구조 (RoadmapService에서만 호출)
+- [7단계/Vault] storedName UUID 기반 서버 생성 - Path Traversal 기본 방어 올바름
+- [7단계/Vault] MIME 헤더 + 매직 넘버 이중 검증 - JPEG/PNG/WEBP/PDF 시그니처 정확히 구현
+- [7단계/Vault] Content-Disposition: attachment 헤더 - 브라우저 인라인 렌더링 차단 올바름
+- [7단계/Vault] download/delete에 findByOidAndOwnerOid 단일 복합 쿼리 - IDOR 방어 올바름
+- [7단계/Vault] AttachmentResponse에서 storedName/ownerOid/refOid 제거 - 반복 지적 사전 방어
 
 ## 반복 패턴 경고 (이 프로젝트에서 자주 발생)
+- 조회 API(list/GET)에서 소유권 검증 누락 반복 발생 — upload/download/delete는 ownerOid 검증하면서 list만 누락하는 패턴
+  -> 모든 GET 목록 API에서도 ownerOid 기반 소유권 검증을 반드시 적용할 것
+- application.yml(기본 프로파일)에 평문 자격증명 잔존 패턴 (2026-03-28 재발견)
+  -> application.yml 모든 민감값은 ${ENV_VAR} 형식 필수, 폴백값 금지
 - Rate Limit 새 API 추가 시 RateLimitFilter.RATE_LIMITED_PATHS 업데이트 누락 위험 (3단계에서 발생)
   -> 새 민감 API(인증 관련, 반복 시도 가능 API) 추가 시 항상 RateLimitFilter 체크할 것
 - FK 없는 아키텍처에서 check-then-act 패턴 사용 시 Race Condition 위험

@@ -30,12 +30,28 @@
 2. 날짜 DatePicker lastDate 하드코딩 (DateTime(2030) — 갱신 필요)
 3. SANGGYEONRYE 날짜 미입력 시 일정 미등록 (의도된 동작이나 사용자 피드백 없음)
 4. DRESS 폼에서 잔금 납부일 초기화 버그 (dressBalanceDate == null이면 DatePicker에 오늘 날짜 기본값 표시)
+5. [BE] countByOwnerOid() 범위 오용: 기본/직접 로드맵 단계 전체 합산 → 스코프별 카운트 쿼리 분리 필요
+   - 기본 로드맵 20개 제한: countByOwnerOidAndGroupOidIsNull 사용
+   - 직접 로드맵 sort_order: countByOwnerOidAndGroupOid 사용
+6. [FE] 로그아웃 시 Notifier reset 누락: 새 도메인 Notifier 추가 시 반드시 logout()에 reset() 호출 추가
+   → auth_notifier.dart finally 블록, 9단계에서 vendorNotifierProvider reset 누락 확인됨
+7. [BE] boolean isFavorite Jackson 직렬화 키: boolean 원시 타입은 "favorite", Boolean 래퍼는 "isFavorite"로
+   Jackson이 직렬화 → @JsonProperty로 키를 명시적으로 고정해야 버전업 시 silent break 방지
+8. [FE] 상세 화면에서 detail notifier와 list notifier 양쪽에 토글 호출 시 이중 API 호출 버그
+   → detail screen에서는 detailNotifier.toggleFavorite()만 호출, listNotifier.toggleFavorite()는 이중 호출 금지
+9. [FE] 화면 색상 상수 중복: vendor_screen.dart / vendor_detail_screen.dart 동일 상수 선언 반복
+   → lib/core/theme/app_colors.dart 공통 파일 추출 권고
 
 ## 아키텍처 결정 사항
 - roadmap-budget 연동: "[로드맵] 결혼예산" 카테고리 자동 생성, budgetItems 배열로 계약금/잔금 매핑
 - roadmap-schedule 연동: sourceType=ROADMAP/SANGGYEONRYE/HALL_TOUR, sourceOid로 연결
 - SANGGYEONRYE 일정: sourceOid = stepOid + "_SANG" (stepOid 단독의 ROADMAP 일정과 충돌 방지)
 - createStep: details='{}' 빈 JSON으로 생성, 이후 updateStep으로 세부 내용 저장
+- 로드맵 아키텍처 (6.3단계, 2026-03-29): 기본 로드맵(group_oid=NULL) + 직접 로드맵(weddy_custom_roadmaps + group_oid 있는 단계)
+  - 기본 로드맵 단계 20개 제한: countByOwnerOidAndGroupOidIsNull
+  - 직접 로드맵 10개 제한: customRoadmapRepository.countByOwnerOid
+  - 직접 로드맵 단계는 20개 제한 없음 (sortOrder만 그룹 내 카운트 기준)
+- TabController 동적 재초기화: build() 중 직접 setState 금지, addPostFrameCallback으로 안전하게 처리 (확인됨)
 
 ## 리뷰 기준 우선순위
 1. 버그/데이터 무결성 (Critical)

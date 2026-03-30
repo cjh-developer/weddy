@@ -7,7 +7,8 @@
       "Bash(powershell:*)",
       "Bash(./gradlew compileJava:*)",
       "Bash(./gradlew test:*)",
-      "Bash(flutter pub:*)"
+      "Bash(flutter pub:*)",
+      "Bash(flutter:*)"
     ]
   }
 }

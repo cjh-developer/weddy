@@ -4,6 +4,305 @@
 
 ---
 
+## [9단계] 즐겨찾기(벤더) + 업체 검색/상세 (2026-03-30)
+
+### Added — Backend
+
+**신규 파일**
+
+| 파일 | 내용 |
+|------|------|
+| `domain/vendor/entity/Vendor.java` | weddy_vendors JPA 엔티티 |
+| `domain/vendor/entity/Favorite.java` | weddy_favorites JPA 엔티티 (owner_oid + vendor_oid UNIQUE KEY) |
+| `domain/vendor/repository/VendorRepository.java` | 카테고리/키워드 필터 조회 |
+| `domain/vendor/repository/FavoriteRepository.java` | 즐겨찾기 CRUD |
+| `domain/vendor/dto/request/AddFavoriteRequest.java` | @Pattern(regexp="^[0-9]{14}$") |
+| `domain/vendor/dto/response/VendorResponse.java` | isFavorited(@JsonProperty("favorited")) 포함 |
+| `domain/vendor/dto/response/VendorDetailResponse.java` | favoriteOid(@JsonProperty("favorited")) 포함 |
+| `domain/vendor/dto/response/FavoriteItemResponse.java` | 즐겨찾기 목록 응답 DTO |
+| `domain/vendor/dto/response/AddFavoriteResponse.java` | 즐겨찾기 추가 응답 DTO |
+| `domain/vendor/service/VendorService.java` | VALID_CATEGORIES 화이트리스트, FORBIDDEN 응답, debug 로그 |
+| `domain/vendor/controller/VendorController.java` | @Validated + @Pattern/@Size 입력 검증 |
+
+**API 엔드포인트 추가**
+
+| 메서드 | URL | 설명 |
+|--------|-----|------|
+| GET | `/api/v1/vendors?category=HALL&keyword=서울` | 벤더 목록 (isFavorited 포함) |
+| GET | `/api/v1/vendors/favorites` | 즐겨찾기 목록 |
+| GET | `/api/v1/vendors/{vendorOid}` | 벤더 상세 (favoriteOid 포함) |
+| POST | `/api/v1/vendors/favorites` | 즐겨찾기 추가 |
+| DELETE | `/api/v1/vendors/favorites/{favoriteOid}` | 즐겨찾기 삭제 |
+
+**ErrorCode 추가**
+
+| 코드 | 의미 |
+|------|------|
+| AUTH_004 / FORBIDDEN | 접근 권한 없음 (IDOR 방어용) |
+
+### Added — Frontend
+
+**신규 파일**
+
+| 파일 | 내용 |
+|------|------|
+| `lib/features/vendor/data/model/vendor_model.dart` | VendorModel, VendorDetailModel, FavoriteItemModel |
+| `lib/features/vendor/data/datasource/vendor_remote_datasource.dart` | Dio 기반 API 호출 |
+| `lib/features/vendor/presentation/notifier/vendor_notifier.dart` | sealed state, reset(), updateFavoriteStatus() |
+| `lib/features/vendor/presentation/notifier/vendor_detail_notifier.dart` | 상세 조회 notifier |
+| `lib/features/vendor/presentation/screen/vendor_screen.dart` | 카테고리 탭 + 검색바 + 카드 리스트 |
+| `lib/features/vendor/presentation/screen/vendor_detail_screen.dart` | SliverAppBar, URL 스킴 검증, url_launcher |
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `lib/core/router/app_router.dart` | /vendor, /vendor/:oid 경로 추가 |
+| `lib/features/home/presentation/screen/home_screen.dart` | 업체 메뉴 context.push('/vendor') 연결 |
+| `lib/features/auth/presentation/notifier/auth_notifier.dart` | 로그아웃 시 vendorNotifierProvider.reset() 추가 |
+| `pubspec.yaml` | url_launcher ^6.3.0 추가 |
+
+### Fixed — Backend (lead-code-validator)
+
+| 버그 | 수정 내용 |
+|------|---------|
+| Jackson boolean 직렬화 키 불일치 | VendorResponse/VendorDetailResponse에 @JsonProperty("favorited") 명시 |
+
+### Fixed — Frontend (lead-code-validator)
+
+| 버그 | 수정 내용 |
+|------|---------|
+| vendor_detail_screen.dart 이중 API 호출 | 즐겨찾기 토글 후 updateFavoriteStatus() 로컬 동기화로 교체 |
+| auth_notifier.dart 로그아웃 시 vendorNotifierProvider 미초기화 | reset() 호출 추가 |
+
+### Security — Backend (security-advisor)
+
+| 항목 | 내용 |
+|------|------|
+| category 파라미터 화이트리스트 | VALID_CATEGORIES Set으로 허용 값 명시 검증 |
+| IDOR 응답 코드 수정 | UNAUTHORIZED(401) → FORBIDDEN(403, AUTH_004) |
+| 입력 검증 강화 | @Validated + @Pattern/@Size (category, keyword, oid PathVariables) |
+| 로그 레벨 낮춤 | 의심 접근 시 INFO → debug 레벨 (운영 로그 오염 방지) |
+
+### Security — Frontend (security-advisor)
+
+| 항목 | 내용 |
+|------|------|
+| URL 스킴 검증 | vendor_detail_screen.dart: http/https만 허용, 나머지 차단 |
+
+---
+
+## [8.2단계] 전체 화면 UI 개선 (2026-03-30)
+
+### Changed — Frontend
+
+| 화면 | 변경 내용 |
+|------|---------|
+| 전체 7개 화면 | 배경색 통일: `0xFF0D0D1A` → `0xFF080810` / `0xFF1B0929` → `0xFF0C0820` |
+| `home_screen.dart` | _DDayChip 그라디언트+하트 아이콘, 메뉴 아이콘 글로우, 진행률 gradient bar |
+| `budget_screen.dart` | 다이얼로그 입력필드 `Color(0x1AFFFFFF)` glass 스타일, 진행률 gradient bar |
+| `schedule_screen.dart` | 뷰토글 그라디언트, 일정 카드 좌측 컬러바, 캘린더 오늘날짜 글로우 |
+| `checklist_screen.dart` | 섹션 헤더 진행률 2px 바, 완료 아이템 초록 tint 배경 |
+| `login_screen.dart` / `sign_up_screen.dart` / `wedding_date_setup_screen.dart` | 입력필드 `Color(0x1AFFFFFF)` glass 스타일 통일 |
+
+### Notes
+- DB/BE 변경 없음 (순수 FE UI 개선)
+
+---
+
+## [8.1단계] 웨딩 관리 UI 개선 (2026-03-29)
+
+### Fixed — Frontend
+
+| 버그 | 수정 내용 |
+|------|---------|
+| `initDefaultRoadmap()` 서버 동기화 누락 | API 성공 후 직접 state 설정 → `await loadSteps()` 호출로 서버 재동기화 |
+| 단계 추가 모달 터치 버그 | `showDialog + Center + ConstrainedBox + Material` 래퍼 구조로 수정 |
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `lib/features/roadmap/screens/roadmap_screen.dart` | 유리 글래스모피즘 디자인 전면 적용 (`_kBg1=0xFF080810`, `_kBg2=0xFF0C0820`, BackdropFilter blur sigmaX/Y=10, 카드 배경 `0x1AFFFFFF`, 테두리 `0x28FFFFFF`) |
+| `lib/features/roadmap/screens/roadmap_screen.dart` | `_PeriodGroup` 데이터 클래스 + `_PeriodGroupTile` 복원: 왼쪽 dot+gradient line / 오른쪽 glass card, dDayText 기반 기간 그룹화 |
+| `lib/features/roadmap/screens/roadmap_screen.dart` | 기간 배지 상태 색상 분리: 완료→초록 / 진행중→노랑 / 미시작→`Color(0x88FFFFFF)` 중립 |
+| `lib/features/roadmap/screens/roadmap_screen.dart` | ETC 커스텀 카테고리: 이름 직접 입력 + 12색 팔레트, `details['customColor']`(int)에 저장 |
+| `lib/features/roadmap/screens/roadmap_screen.dart` | `_CustomRoadmapTabView`에 `onShowMenu` 콜백 + `Icons.more_vert` 버튼으로 직접 로드맵 삭제 접근성 개선 |
+| `lib/features/roadmap/models/roadmap_step_model.dart` | `effectiveColor` getter 추가: `details['customColor']` int → `Color` 변환, 없으면 카테고리 기본색 사용 |
+
+### Notes
+- `flutter analyze`: No issues found
+- DB/BE 변경 없음 (순수 FE UI 개선)
+
+---
+
+## [8단계] 로드맵 아키텍처 재설계 — 직접 로드맵 기능 (2026-03-29)
+
+### Added — Backend
+
+**신규 파일 5개**
+
+| 파일 | 내용 |
+|------|------|
+| `domain/roadmap/entity/CustomRoadmap.java` | `weddy_custom_roadmaps` JPA 엔티티 (oid PK, owner_oid INDEX, name, sort_order) |
+| `domain/roadmap/repository/CustomRoadmapRepository.java` | `findByOwnerOidOrderBySortOrderAsc`, `countByOwnerOid`, `findByOidAndOwnerOid` |
+| `domain/roadmap/dto/request/CreateCustomRoadmapRequest.java` | 직접 로드맵 생성 요청 DTO |
+| `domain/roadmap/dto/request/RenameCustomRoadmapRequest.java` | 직접 로드맵 이름 변경 요청 DTO |
+| `domain/roadmap/dto/response/CustomRoadmapResponse.java` | oid/name/sortOrder/steps 포함 응답 DTO |
+| `domain/roadmap/controller/CustomRoadmapController.java` | 4개 엔드포인트 (GET/POST 목록·생성, PATCH/DELETE 수정·삭제) |
+
+**API 엔드포인트 추가**
+
+| 메서드 | URL | 설명 |
+|--------|-----|------|
+| GET | `/api/v1/roadmap/custom` | 직접 로드맵 목록 (소속 단계 포함) |
+| POST | `/api/v1/roadmap/custom` | 직접 로드맵 생성 (최대 10개) |
+| PATCH | `/api/v1/roadmap/custom/{groupOid}` | 이름 변경 |
+| DELETE | `/api/v1/roadmap/custom/{groupOid}` | 삭제 (소속 단계 연쇄 삭제) |
+
+**ErrorCode 추가**
+
+| 코드 | 의미 |
+|------|------|
+| ROADMAP_008 | CUSTOM_ROADMAP_NOT_FOUND — 직접 로드맵 없음 또는 소유권 없음 |
+| ROADMAP_009 | CUSTOM_ROADMAP_LIMIT_EXCEEDED — 직접 로드맵 10개 한도 초과 |
+
+**schema.sql 변경**
+
+| 변경 | 내용 |
+|------|------|
+| `weddy_custom_roadmaps` 테이블 신규 추가 | oid PK, owner_oid INDEX, name VARCHAR(100), sort_order INT |
+| `weddy_roadmap_steps.group_oid` 컬럼 추가 | VARCHAR(14) NULL + INDEX (NULL=기본 로드맵, 값=직접 로드맵 OID) |
+
+### Changed — Backend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `domain/roadmap/entity/RoadmapStep.java` | `groupOid` 필드 추가 |
+| `domain/roadmap/dto/response/RoadmapStepResponse.java` | `groupOid` 필드 추가 |
+| `domain/roadmap/dto/request/CreateRoadmapStepRequest.java` | optional `groupOid` 필드 추가 |
+| `domain/roadmap/repository/RoadmapStepRepository.java` | `findByOwnerOidAndGroupOidIsNull`, `findByOwnerOidAndGroupOid`, `countByOwnerOidAndGroupOidIsNull`, `countByOwnerOidAndGroupOid` 추가 |
+| `domain/roadmap/service/RoadmapService.java` | `getSteps()` 기본 로드맵만 조회, `createStep()` groupOid 소유권 검증 및 스코프별 sort_order 계산, `initDefaultRoadmap()` 중복 체크 수정, custom 로드맵 CRUD 메서드 4개 추가, `CustomRoadmapRepository` 의존성 주입 |
+
+### Fixed — Backend
+
+| 버그 | 수정 내용 |
+|------|---------|
+| `initDefaultRoadmap()` 중복 체크 오류 | `countByOwnerOid` → `countByOwnerOidAndGroupOidIsNull` 변경 — 직접 로드맵 단계가 있어도 기본 로드맵 생성 가능 |
+
+### Added — Frontend
+
+**신규 파일 2개**
+
+| 파일 | 내용 |
+|------|------|
+| `lib/features/roadmap/models/custom_roadmap_model.dart` | oid/name/sortOrder/steps 포함 모델 |
+| `lib/features/roadmap/providers/custom_roadmap_notifier.dart` | sealed state (Initial/Loading/Loaded/Error) + loadCustomRoadmaps / createCustomRoadmap / renameCustomRoadmap / deleteCustomRoadmap (낙관적 삭제) |
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `lib/features/roadmap/models/roadmap_step_model.dart` | `groupOid: String?` 필드 추가 (fromJson/toJson/copyWith) |
+| `lib/features/roadmap/providers/roadmap_notifier.dart` | `createStep()`에 `groupOid` 파라미터 추가 |
+| `lib/features/auth/providers/auth_notifier.dart` | 로그아웃 시 `customRoadmapNotifierProvider.notifier.reset()` 추가 |
+| `lib/features/roadmap/screens/roadmap_screen.dart` | 동적 탭 구조 ([기본 로드맵] + [직접1..N] + [+]), `_initTabController` 동적 재초기화, 탭 롱프레스 메뉴, `_CustomRoadmapTabView`, `_AddRoadmapTab`, FAB 3분기 로직 |
+
+---
+
+## [7단계] 첨부파일(Vault) 기능 (2026-03-28)
+
+### Added — Backend
+
+**신규 파일 7개**
+
+| 파일 | 내용 |
+|------|------|
+| `domain/attachment/config/FileStorageProperties.java` | `file.upload-dir` 프로퍼티 바인딩 |
+| `domain/attachment/config/FileStorageConfig.java` | 업로드 디렉토리 초기화 |
+| `domain/attachment/entity/Attachment.java` | weddy_attachments JPA 엔티티 (oid PK, owner_oid INDEX, ref_type, ref_oid, original_name, stored_name, file_size, mime_type) |
+| `domain/attachment/repository/AttachmentRepository.java` | 5개 메서드 (findByOwnerOidAndRefTypeAndRefOid, deleteByRefOid 등) |
+| `domain/attachment/dto/response/AttachmentResponse.java` | oid/originalName/fileSize/mimeType/createdAt |
+| `domain/attachment/service/AttachmentService.java` | 업로드/목록/다운로드/삭제, 매직넘버 이중 검증 |
+| `domain/attachment/controller/AttachmentController.java` | 4개 엔드포인트 |
+
+**API 엔드포인트**
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| POST | `/api/v1/attachments` | 파일 업로드 (multipart/form-data, refType+refOid 파라미터) |
+| GET | `/api/v1/attachments?refType=&refOid=` | 특정 참조 대상 첨부파일 목록 |
+| GET | `/api/v1/attachments/{oid}/download` | 파일 다운로드 (Content-Disposition: attachment) |
+| DELETE | `/api/v1/attachments/{oid}` | 첨부파일 삭제 |
+
+**ErrorCode 추가**
+
+| 코드 | 의미 |
+|------|------|
+| ATTACHMENT_001 | NOT_FOUND — 첨부파일 없음 또는 소유권 없음 |
+| ATTACHMENT_002 | UPLOAD_FAILED — 파일 저장 실패 |
+| ATTACHMENT_003 | INVALID_FILE_TYPE — 허용되지 않는 MIME 타입 |
+| ATTACHMENT_004 | FILE_TOO_LARGE — 파일 크기 초과 |
+| ATTACHMENT_005 | LIMIT_EXCEEDED — 첨부파일 개수 한도 초과 |
+
+### Changed — Backend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `resources/application.yml` | multipart 설정 추가 + `file.upload-dir: ./uploads` |
+| `resources/scripts/schema.sql` | weddy_attachments 테이블 추가 |
+| `common/exception/ErrorCode.java` | ATTACHMENT_001~005 추가 |
+| `domain/roadmap/service/RoadmapService.java` | `deleteStep()`에 `attachmentService.deleteByRefOid(stepOid)` 연쇄 삭제 추가 |
+| `domain/budget/service/BudgetService.java` | `deleteBudget()`에 `attachmentService.deleteByRefOid(budgetOid)` 연쇄 삭제 추가 |
+
+### Added — Frontend
+
+**신규 파일 4개**
+
+| 파일 | 내용 |
+|------|------|
+| `lib/features/attachment/data/model/attachment_model.dart` | AttachmentModel |
+| `lib/features/attachment/presentation/notifier/attachment_notifier.dart` | StateNotifierProvider.autoDispose.family<..., (String, String)> — refType+refOid 튜플 키, _lastKnownList 필드 |
+| `lib/features/attachment/presentation/widget/attachment_thumbnail_widget.dart` | 이미지/PDF/기타 파일 썸네일 + 다운로드, Image.memory() 표시 |
+| `lib/features/attachment/presentation/widget/attachment_section_widget.dart` | 파일 추가 버튼 + 목록, AttachmentUploading 상태 시 버튼 비활성화 |
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `pubspec.yaml` | `image_picker: ^1.1.2`, `file_picker: ^8.1.2` 추가 |
+| `lib/features/roadmap/presentation/screen/roadmap_screen.dart` | `_StepDetailBottomSheet` 하단에 `AttachmentSectionWidget(refType: 'ROADMAP_STEP')` 추가 |
+| `lib/features/budget/presentation/screen/budget_screen.dart` | `_BudgetSection` 하단에 `AttachmentSectionWidget(refType: 'BUDGET')` 추가 |
+
+### Security
+
+| 항목 | 내용 |
+|------|------|
+| 매직넘버 이중 검증 | JPEG(FF D8 FF), PNG(8바이트 시그니처), WebP(RIFF+WEBP 12바이트), PDF(%PDF) — MIME 타입 위조 방지 |
+| list() IDOR 방어 | `validateRefOwnership()` — refType/refOid 소유권 확인 후 목록 반환 |
+| upload() 검증 순서 | 크기 → MIME → 매직넘버 → 소유권 → 개수제한 → 저장 |
+| download 응답 | Content-Disposition: attachment + RFC 5987 파일명 인코딩 (한글 파일명 지원) |
+| deleteByRefOid() | 내부 전용 메서드, ownerOid 없이 refOid로만 삭제 — 외부 API 미노출 |
+
+**보안 백로그 신규 추가**
+
+| 항목 | 우선순위 |
+|------|----------|
+| 고아 파일 정리 스케줄러 미구현 (디스크 저장 후 DB 실패 케이스) | LOW |
+| storedName VARCHAR(40) → VARCHAR(50) 여유 확보 검토 | LOW |
+| 운영 환경 로컬 스토리지 → S3/GCS 전환 필요 | LOW |
+
+### Key Design Decisions
+
+| 결정 | 이유 |
+|------|------|
+| StateNotifierProvider.family 튜플 키 | refType+refOid 조합으로 화면 간 상태 격리 (로드맵 단계별, 예산 카테고리별 독립 상태) |
+| _lastKnownList 필드 | clearError() 시 빈 리스트 대신 마지막 정상 목록으로 복원 — 에러 후 목록 유지 |
+| deleteByRefOid() ownerOid 조건 없음 | 내부 전용 메서드로 외부 API 경로 없음, RoadmapService/BudgetService에서만 호출 |
+| 매직넘버 검증 | MIME 타입 스푸핑(파일 확장자 변조) 방어를 위해 파일 헤더 바이트 직접 검증 |
+
+---
+
 ## [6.2단계] 웨딩 관리 로드맵 상세 폼 + 예산 연동 (2026-03-28)
 
 ### Added — Backend

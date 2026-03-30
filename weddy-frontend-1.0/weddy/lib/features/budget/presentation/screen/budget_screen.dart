@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import 'package:weddy/features/attachment/presentation/widget/attachment_section_widget.dart';
 import 'package:weddy/features/budget/data/model/budget_item_model.dart';
 import 'package:weddy/features/budget/data/model/budget_model.dart';
 import 'package:weddy/features/budget/data/model/budget_settings_model.dart';
@@ -15,8 +16,8 @@ import 'package:weddy/features/budget/presentation/notifier/budget_notifier.dart
 // 색상 상수 (홈/체크리스트 Dark Glass 테마 통일)
 // ---------------------------------------------------------------------------
 
-const _kBg1 = Color(0xFF0D0D1A);
-const _kBg2 = Color(0xFF1B0929);
+const _kBg1 = Color(0xFF080810);
+const _kBg2 = Color(0xFF0C0820);
 const _kGlass = Color(0x14FFFFFF);
 const _kGlassBorder = Color(0x33FFFFFF);
 const _kText = Colors.white;
@@ -67,26 +68,28 @@ Widget _buildBudgetDialogField({
   TextInputType keyboardType = TextInputType.text,
   List<TextInputFormatter>? inputFormatters,
 }) {
-  return Container(
-    height: 52,
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFFDDDDDD), width: 1),
-    ),
-    child: TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      style: const TextStyle(color: Colors.black87, fontSize: 14),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.black38, fontSize: 13),
-        prefixIcon: Icon(icon, color: _kBudgetColor, size: 18),
-        border: InputBorder.none,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+  return TextField(
+    controller: controller,
+    keyboardType: keyboardType,
+    inputFormatters: inputFormatters,
+    style: const TextStyle(color: Colors.white, fontSize: 14),
+    keyboardAppearance: Brightness.dark,
+    decoration: InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: Color(0x66FFFFFF), fontSize: 13),
+      prefixIcon: Icon(icon, color: _kBudgetColor, size: 18),
+      filled: true,
+      fillColor: const Color(0x1AFFFFFF),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0x33FFFFFF)),
       ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _kBudgetColor, width: 1.5),
+      ),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
     ),
   );
 }
@@ -499,16 +502,30 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                 ],
               ),
               const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: usageRatio.clamp(0.0, 1.0),
-                  minHeight: 8,
-                  backgroundColor: const Color(0x2634D399),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    isOver ? _kUrgent : _kBudgetColor,
+              Stack(
+                children: [
+                  Container(
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                ),
+                  FractionallySizedBox(
+                    widthFactor: usageRatio.clamp(0.0, 1.0),
+                    child: Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isOver
+                              ? [_kUrgent, const Color(0xFFFCA5A5)]
+                              : [_kBudgetColor, const Color(0xFF6EE7B7)],
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1067,16 +1084,30 @@ class _BudgetSectionState extends State<_BudgetSection> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: LinearProgressIndicator(
-                            value: usageRatio.clamp(0.0, 1.0),
-                            minHeight: 4,
-                            backgroundColor: const Color(0x2234D399),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              isOver ? _kUrgent : _kBudgetColor,
+                        Stack(
+                          children: [
+                            Container(
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
-                          ),
+                            FractionallySizedBox(
+                              widthFactor: usageRatio.clamp(0.0, 1.0),
+                              child: Container(
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: isOver
+                                        ? [_kUrgent, const Color(0xFFFCA5A5)]
+                                        : [_kBudgetColor, const Color(0xFF6EE7B7)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1173,6 +1204,20 @@ class _BudgetSectionState extends State<_BudgetSection> {
                         ],
                       ),
                     ),
+                  ),
+                ),
+                // ── 첨부파일 섹션 ──
+                Divider(
+                  height: 1,
+                  color: Colors.white.withOpacity(0.06),
+                  indent: 16,
+                  endIndent: 16,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: AttachmentSectionWidget(
+                    refType: 'BUDGET',
+                    refOid: widget.budget.oid,
                   ),
                 ),
               ],

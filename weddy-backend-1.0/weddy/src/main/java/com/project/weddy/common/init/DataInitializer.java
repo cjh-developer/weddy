@@ -54,6 +54,7 @@ public class DataInitializer implements CommandLineRunner {
         createChecklists();
         createBudgets();
         createBudgetSettings();
+        createVendors();   // 즐겨찾기보다 먼저 (FK 없지만 논리적 순서)
         createFavorites();
         createRoadmapSteps();
         createSchedules();
@@ -248,6 +249,81 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     // =========================================================
+    // 웨딩 업체
+    // =========================================================
+
+    private void createVendors() {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM weddy_vendors",
+                Integer.class);
+        if (count != null && count > 0) {
+            log.debug("[DataInitializer] 업체 데이터 이미 존재, 건너뜀.");
+            return;
+        }
+
+        // HALL (예식장) — 3개
+        insertVendor("70000000000001", "HALL",      "그랜드 웨딩홀",
+                "서울 강남구 논현동 123",       "02-1234-5678",
+                "강남 최대 규모 웨딩홀. 최대 500명 수용 가능. 야외 정원 포함.");
+        insertVendor("70000000000009", "HALL",      "로얄 가든 웨딩",
+                "서울 서초구 반포동 55",        "02-9988-7766",
+                "한강 조망 루프탑 예식장. 소규모 단독 예식 특화.");
+        insertVendor("70000000000010", "HALL",      "블루밍 웨딩홀",
+                "경기 성남시 분당구 정자동 88", "031-888-9900",
+                "분당 신도시 대형 웨딩홀. 200~600명 규모 수용 가능.");
+
+        // STUDIO (스튜디오) — 2개
+        insertVendor("70000000000002", "STUDIO",    "스튜디오 아이엘",
+                "서울 마포구 합정동 56",        "02-3456-7890",
+                "자연광 스튜디오 + 야외 공원 촬영 패키지. 원판 필름 제공.");
+        insertVendor("70000000000011", "STUDIO",    "포레스트 스튜디오",
+                "서울 성동구 성수동 12",        "02-7777-1234",
+                "성수 감성 스튜디오. 필름 감성 · 미니멀 컨셉 특화.");
+
+        // DRESS (드레스) — 2개
+        insertVendor("70000000000003", "DRESS",     "로맨티크 드레스샵",
+                "서울 강남구 청담동 78",        "02-2345-6789",
+                "수입 드레스 200벌 이상 보유. 무료 핏팅 2회 제공.");
+        insertVendor("70000000000012", "DRESS",     "화이트 아뜰리에",
+                "서울 서초구 방배동 33",        "02-6655-4433",
+                "국내 자체 제작 드레스 전문. 3D 체형 맞춤 드레스 제공.");
+
+        // MAKEUP (메이크업) — 2개
+        insertVendor("70000000000004", "MAKEUP",    "뷰티 아뜰리에",
+                "서울 강남구 압구정동 90",      "02-3456-1234",
+                "연예인 전담 메이크업 아티스트 팀. 트라이얼 1회 포함 패키지.");
+        insertVendor("70000000000013", "MAKEUP",    "글로우 메이크업",
+                "서울 마포구 홍대입구 44",      "02-5544-6677",
+                "내추럴 · 글로우 메이크업 특화. 당일 파우더룸 서비스 제공.");
+
+        // HONEYMOON (허니문) — 2개
+        insertVendor("70000000000005", "HONEYMOON", "발리 허니문 패키지",
+                "서울 중구 을지로 100",         "02-4567-8901",
+                "발리 풀빌라 7박 + 항공 포함 패키지. 스파·조식 포함.");
+        insertVendor("70000000000006", "HONEYMOON", "몰디브 프리미엄 투어",
+                "서울 강남구 역삼동 200",       "02-5678-9012",
+                "몰디브 수상 방갈로 5박 패키지. 스노클링 투어 포함.");
+
+        // ETC (기타) — 2개
+        insertVendor("70000000000007", "ETC",       "웨딩 플래너 A팀",
+                "서울 서초구 서초동 300",       "02-6789-0123",
+                "토탈 웨딩 플래닝 서비스. 계약 시작 ~ 본식 당일까지 1:1 전담.");
+        insertVendor("70000000000008", "ETC",       "청첩장 공방",
+                "서울 마포구 연남동 400",       "02-7890-1234",
+                "수제 청첩장 제작 공방. 레터프레스 · 금박 · 캘리그라피 특화.");
+
+        log.info("[DataInitializer] 업체 13개 생성 완료.");
+    }
+
+    private void insertVendor(String oid, String category, String name,
+                               String address, String phone, String description) {
+        jdbc.update("""
+                INSERT INTO weddy_vendors (oid, name, category, address, phone, description)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """, oid, name, category, address, phone, description);
+    }
+
+    // =========================================================
     // 즐겨찾기
     // =========================================================
 
@@ -318,8 +394,8 @@ public class DataInitializer implements CommandLineRunner {
                                    int sortOrder, String details) {
         jdbc.update("""
                 INSERT INTO weddy_roadmap_steps
-                    (oid, owner_oid, step_type, title, is_done, due_date, has_due_date, sort_order, details)
-                VALUES (?, ?, ?, ?, 0, NULL, 0, ?, ?)
+                    (oid, owner_oid, step_type, title, is_done, status, due_date, has_due_date, sort_order, details)
+                VALUES (?, ?, ?, ?, 0, 'NOT_STARTED', NULL, 0, ?, ?)
                 """, oid, "20000000000001", stepType, title, sortOrder, details);
     }
 

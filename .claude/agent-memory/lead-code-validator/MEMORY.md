@@ -198,3 +198,31 @@
 - 핵심: BUDGET details key = totalBudget, SANGGYEONRYE = restaurantName/extraItems, TRAVEL = purchaseSource/stopovers
 - RoadmapStep.update()에 clearDueDate 파라미터 추가됨 (null 명시 지우기 지원)
 - ROADMAP_TRAVEL_STOP_NOT_FOUND(ROADMAP_004) ErrorCode 추가됨
+
+### [PATTERN] 첨부파일(Vault) 도메인 패턴 (7단계)
+- 상세 내용: patterns-attachment.md 참조
+- AttachmentService → BudgetRepository/RoadmapStepRepository 직접 사용 (순환 의존성 방지)
+- BudgetService/RoadmapService → AttachmentService 단방향 의존
+- deleteByRefOid(): 내부 전용, ownerOid 조건 없음 → JavaDoc 명시됨
+- 매직 넘버 검증: JPEG(FF D8 FF) / PNG(8byte) / WebP(RIFF+WEBP) / PDF(%PDF)
+- AttachmentState: Initial/Loading/Loaded/Uploading/Error 5종 sealed class
+- upload() 실패 시 AttachmentLoaded(current) 복원 후 AttachmentError 전환 (이중 setState 패턴)
+- clearError(): AttachmentError → AttachmentLoaded([]) — 에러 SnackBar 표시 후 자동 초기화
+- storedName: UUID(32자) + 확장자(.jpg/.png/.webp/.pdf) = 최대 36자 → DB VARCHAR(40) 적합
+
+### [BUG] list() API에 소유권 검증 없음 (ATTACHMENT_003급 이슈)
+- GET /attachments?refType=ROADMAP_STEP&refOid=xxx 는 userOid 사용하지 않음
+- 타인의 refOid를 알면 파일 목록 노출 가능 (단, 다운로드는 ownerOid 체크로 막힘)
+- 해결: list()에도 validateRefOwnership() 추가 또는 ownerOid 조건으로 쿼리 변경
+
+### [BUG] upload() 검증 순서 - 개수 제한 체크가 소유권 체크보다 먼저 수행됨
+- 타인 refOid로 업로드 시도 시 개수 상한(20) 체크가 먼저 → 개수 정보 간접 노출
+- 해결: validateRefOwnership → countByRefTypeAndRefOid 순으로 변경
+
+### [BUG] AttachmentThumbnailWidget clearError() 동작 오류
+- clearError()가 에러 시 AttachmentLoaded([]) 빈 리스트로 설정 → 실제 목록 손실
+- 해결: 에러 이전 current snapshot을 AttachmentNotifier에 보관하여 복원
+
+### [PATTERN] 로컬 파일 저장소의 운영 환경 한계
+- ./uploads 로컬 디스크 저장 → 수평 확장(멀티 인스턴스) 시 파일 공유 불가
+- 운영 환경에서는 S3/GCS 등 외부 스토리지로 전환 필요 (현재 단계에서는 허용)

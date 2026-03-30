@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/** 허용 카테고리 화이트리스트 (서비스 레이어 1차 검증). */
+
 /**
  * 업체 검색 및 즐겨찾기 서비스.
  *
@@ -35,6 +37,9 @@ import java.util.stream.Collectors;
 @Transactional
 @RequiredArgsConstructor
 public class VendorService {
+
+    private static final Set<String> VALID_CATEGORIES =
+            Set.of("HALL", "STUDIO", "DRESS", "MAKEUP", "HONEYMOON", "ETC");
 
     private final VendorRepository vendorRepository;
     private final FavoriteRepository favoriteRepository;
@@ -66,6 +71,10 @@ public class VendorService {
      */
     @Transactional(readOnly = true)
     public List<VendorResponse> getVendors(String userOid, String category, String keyword) {
+        // category 화이트리스트 검증 (컨트롤러 @Pattern 이중 방어)
+        if (category != null && !VALID_CATEGORIES.contains(category)) {
+            throw new CustomException(ErrorCode.VALIDATION_FAILED);
+        }
         String ownerOid = getOwnerOid(userOid);
         List<Vendor> vendors = vendorRepository.search(category, keyword);
 
@@ -162,8 +171,7 @@ public class VendorService {
                 .vendorOid(vendorOid)
                 .build();
         Favorite saved = favoriteRepository.save(favorite);
-        log.info("즐겨찾기 추가 - favoriteOid: {}, ownerOid: {}, vendorOid: {}",
-                saved.getOid(), ownerOid, vendorOid);
+        log.debug("즐겨찾기 추가 - favoriteOid: {}", saved.getOid());
 
         return AddFavoriteResponse.builder()
                 .favoriteOid(saved.getOid())
@@ -184,12 +192,12 @@ public class VendorService {
         Favorite favorite = favoriteRepository.findById(favoriteOid)
                 .orElseThrow(() -> new CustomException(ErrorCode.FAVORITE_NOT_FOUND));
 
-        // IDOR 방어: 즐겨찾기 소유자와 현재 사용자 일치 여부 확인
+        // IDOR 방어: 즐겨찾기 소유자와 현재 사용자 일치 여부 확인 (인가 거부 = 403 FORBIDDEN)
         if (!favorite.getOwnerOid().equals(ownerOid)) {
-            throw new CustomException(ErrorCode.UNAUTHORIZED);
+            throw new CustomException(ErrorCode.FORBIDDEN);
         }
 
         favoriteRepository.delete(favorite);
-        log.info("즐겨찾기 삭제 - favoriteOid: {}, ownerOid: {}", favoriteOid, ownerOid);
+        log.debug("즐겨찾기 삭제 - favoriteOid: {}", favoriteOid);
     }
 }

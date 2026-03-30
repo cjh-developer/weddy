@@ -11,9 +11,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,6 +37,7 @@ import java.util.List;
  */
 @Tag(name = "Vendors", description = "업체 검색 및 즐겨찾기")
 @SecurityRequirement(name = "Bearer Authentication")
+@Validated
 @RestController
 @RequestMapping("/api/v1/vendors")
 @RequiredArgsConstructor
@@ -47,8 +51,13 @@ public class VendorController {
     @GetMapping
     public ApiResponse<List<VendorResponse>> getVendors(
             @AuthenticationPrincipal String userOid,
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) String keyword) {
+            @RequestParam(required = false)
+            @Pattern(regexp = "^(HALL|STUDIO|DRESS|MAKEUP|HONEYMOON|ETC)$",
+                     message = "유효하지 않은 카테고리입니다.")
+            String category,
+            @RequestParam(required = false)
+            @Size(max = 100, message = "검색어는 100자 이내여야 합니다.")
+            String keyword) {
         return ApiResponse.success("업체 조회 성공", vendorService.getVendors(userOid, category, keyword));
     }
 
@@ -69,7 +78,9 @@ public class VendorController {
     @GetMapping("/{vendorOid}")
     public ApiResponse<VendorDetailResponse> getVendor(
             @AuthenticationPrincipal String userOid,
-            @PathVariable String vendorOid) {
+            @PathVariable
+            @Pattern(regexp = "^[0-9]{14}$", message = "업체 OID는 14자리 숫자여야 합니다.")
+            String vendorOid) {
         return ApiResponse.success("업체 상세 조회 성공", vendorService.getVendor(userOid, vendorOid));
     }
 
@@ -89,7 +100,9 @@ public class VendorController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeFavorite(
             @AuthenticationPrincipal String userOid,
-            @PathVariable String favoriteOid) {
+            @PathVariable
+            @Pattern(regexp = "^[0-9]{14}$", message = "즐겨찾기 OID는 14자리 숫자여야 합니다.")
+            String favoriteOid) {
         vendorService.removeFavorite(userOid, favoriteOid);
     }
 }

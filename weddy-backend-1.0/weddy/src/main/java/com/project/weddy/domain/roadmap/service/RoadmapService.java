@@ -5,19 +5,29 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.weddy.common.exception.CustomException;
 import com.project.weddy.common.exception.ErrorCode;
+import com.project.weddy.domain.attachment.service.AttachmentService;
 import com.project.weddy.domain.budget.service.BudgetService;
 import com.project.weddy.domain.couple.entity.Couple;
 import com.project.weddy.domain.couple.repository.CoupleRepository;
 import com.project.weddy.domain.roadmap.dto.request.AddTravelStopRequest;
+import com.project.weddy.domain.roadmap.dto.request.CreateCustomRoadmapRequest;
 import com.project.weddy.domain.roadmap.dto.request.CreateHallTourRequest;
 import com.project.weddy.domain.roadmap.dto.request.CreateRoadmapStepRequest;
+import com.project.weddy.domain.roadmap.dto.request.ReorderRequest;
+import com.project.weddy.domain.roadmap.dto.request.RenameCustomRoadmapRequest;
 import com.project.weddy.domain.roadmap.dto.request.UpdateRoadmapStepRequest;
+import com.project.weddy.domain.roadmap.dto.request.UpdateStatusRequest;
+import com.project.weddy.domain.user.entity.User;
+import com.project.weddy.domain.user.repository.UserRepository;
+import com.project.weddy.domain.roadmap.dto.response.CustomRoadmapResponse;
 import com.project.weddy.domain.roadmap.dto.response.HallTourResponse;
 import com.project.weddy.domain.roadmap.dto.response.RoadmapStepResponse;
 import com.project.weddy.domain.roadmap.dto.response.TravelStopResponse;
+import com.project.weddy.domain.roadmap.entity.CustomRoadmap;
 import com.project.weddy.domain.roadmap.entity.HallTour;
 import com.project.weddy.domain.roadmap.entity.RoadmapStep;
 import com.project.weddy.domain.roadmap.entity.TravelStop;
+import com.project.weddy.domain.roadmap.repository.CustomRoadmapRepository;
 import com.project.weddy.domain.roadmap.repository.HallTourRepository;
 import com.project.weddy.domain.roadmap.repository.RoadmapStepRepository;
 import com.project.weddy.domain.roadmap.repository.TravelStopRepository;
@@ -48,12 +58,15 @@ import java.util.Map;
 public class RoadmapService {
 
     private final RoadmapStepRepository roadmapStepRepository;
+    private final CustomRoadmapRepository customRoadmapRepository;
     private final HallTourRepository hallTourRepository;
     private final TravelStopRepository travelStopRepository;
     private final CoupleRepository coupleRepository;
+    private final UserRepository userRepository;
     private final ScheduleService scheduleService;
     private final ScheduleRepository scheduleRepository;
     private final BudgetService budgetService;
+    private final AttachmentService attachmentService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -70,15 +83,16 @@ public class RoadmapService {
     }
 
     /**
-     * 소유자의 웨딩 관리 단계 전체 목록을 sortOrder 오름차순으로 조회한다.
+     * 소유자의 기본 로드맵 단계 목록을 sortOrder 오름차순으로 조회한다.
+     * group_oid가 NULL인 단계만 반환한다 (직접 로드맵 소속 단계는 제외).
      *
      * @param userOid 현재 사용자 OID
-     * @return 단계 목록
+     * @return 기본 로드맵 단계 목록
      */
     @Transactional(readOnly = true)
     public List<RoadmapStepResponse> getSteps(String userOid) {
         String ownerOid = getOwnerOid(userOid);
-        return roadmapStepRepository.findByOwnerOidOrderBySortOrderAsc(ownerOid)
+        return roadmapStepRepository.findByOwnerOidAndGroupOidIsNullOrderBySortOrderAsc(ownerOid)
                 .stream().map(RoadmapStepResponse::from).toList();
     }
 
@@ -94,19 +108,34 @@ public class RoadmapService {
     public RoadmapStepResponse createStep(String userOid, CreateRoadmapStepRequest req) {
         String ownerOid = getOwnerOid(userOid);
 
-        long currentCount = roadmapStepRepository.countByOwnerOid(ownerOid);
-        if (currentCount >= 20) {
+        // groupOid가 있으면 해당 직접 로드맵이 소유자 것인지 검증
+        String groupOid = req.getGroupOid();
+        if (groupOid != null && !groupOid.isBlank()) {
+            customRoadmapRepository.findByOidAndOwnerOid(groupOid, ownerOid)
+                    .orElseThrow(() -> new CustomException(ErrorCode.CUSTOM_ROADMAP_NOT_FOUND));
+        } else {
+            groupOid = null;
+        }
+
+        // 20개 제한: 기본 로드맵(group_oid=NULL) 단계에만 적용한다.
+        // 직접 로드맵 단계는 별도 컨테이너에 속하므로 합산하지 않는다.
+        long scopeCount = (groupOid == null)
+                ? roadmapStepRepository.countByOwnerOidAndGroupOidIsNull(ownerOid)
+                : roadmapStepRepository.countByOwnerOidAndGroupOid(ownerOid, groupOid);
+        if (groupOid == null && scopeCount >= 20) {
             throw new CustomException(ErrorCode.ROADMAP_STEP_LIMIT_EXCEEDED);
         }
 
-        // 다음 sort_order: 현재 개수 + 1 (0-indexed 방지)
-        int nextSortOrder = (int) currentCount + 1;
+        // 다음 sort_order: 현재 스코프 내 개수 + 1 (0-indexed 방지)
+        int nextSortOrder = (int) scopeCount + 1;
 
         RoadmapStep step = RoadmapStep.builder()
                 .ownerOid(ownerOid)
                 .stepType(req.getStepType())
+                .groupOid(groupOid)
                 .title(req.getTitle())
                 .isDone(false)
+                .status("NOT_STARTED")
                 .dueDate(req.getDueDate())
                 .hasDueDate(req.isHasDueDate())
                 .sortOrder(nextSortOrder)
@@ -214,6 +243,124 @@ public class RoadmapService {
     }
 
     /**
+     * 단계 상태를 변경한다 (NOT_STARTED | IN_PROGRESS | DONE).
+     *
+     * @param userOid 현재 사용자 OID
+     * @param stepOid 변경할 단계 OID
+     * @param req     상태 변경 요청
+     * @return 변경된 단계 응답
+     * @throws CustomException ROADMAP_STEP_NOT_FOUND
+     */
+    public RoadmapStepResponse updateStatus(String userOid, String stepOid, UpdateStatusRequest req) {
+        String ownerOid = getOwnerOid(userOid);
+        RoadmapStep step = roadmapStepRepository.findByOidAndOwnerOid(stepOid, ownerOid)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROADMAP_STEP_NOT_FOUND));
+        step.updateStatus(req.getStatus());
+        log.info("로드맵 단계 상태 변경 - oid: {}, status: {}", stepOid, req.getStatus());
+        return RoadmapStepResponse.from(step);
+    }
+
+    /**
+     * 기본 로드맵 8단계를 일괄 생성한다.
+     * 이미 단계가 존재하면 ROADMAP_ALREADY_INITIALIZED 예외를 발생시킨다.
+     * weddingDate가 있으면 각 구간의 dueDate를 역산한다.
+     *
+     * @param userOid 현재 사용자 OID
+     * @return 생성된 단계 목록
+     * @throws CustomException ROADMAP_ALREADY_INITIALIZED (단계가 이미 존재할 때)
+     */
+    public List<RoadmapStepResponse> initDefaultRoadmap(String userOid) {
+        String ownerOid = getOwnerOid(userOid);
+
+        // 기본 로드맵(group_oid IS NULL) 단계만 확인한다.
+        // 직접 로드맵 단계가 있어도 기본 로드맵 생성은 별도로 허용한다.
+        long existing = roadmapStepRepository.countByOwnerOidAndGroupOidIsNull(ownerOid);
+        if (existing > 0) {
+            throw new CustomException(ErrorCode.ROADMAP_ALREADY_INITIALIZED);
+        }
+
+        // 결혼 날짜 조회: userOid로 개인 weddingDate 조회
+        LocalDate weddingDate = userRepository.findById(userOid)
+                .map(User::getWeddingDate)
+                .orElse(null);
+
+        // 8단계 기본 구성 (stepType, title, dueDate offset 개월)
+        record StepTemplate(String stepType, String title, int monthsBefore) {}
+
+        List<StepTemplate> templates = List.of(
+            new StepTemplate("HALL",         "웨딩홀 투어 및 예약",              12),
+            new StepTemplate("BUDGET",       "웨딩 예산 설정",                   12),
+            new StepTemplate("PLANNER",      "스드메 / 플래너 예약",             9),
+            new StepTemplate("GIFT",         "예물 준비",                        9),
+            new StepTemplate("DRESS",        "스튜디오 촬영 / 메이크업 리허설",  7),
+            new StepTemplate("HOME",         "신혼집 및 신혼여행 계획",          6),
+            new StepTemplate("TRAVEL",       "청첩장 및 혼수 준비",              3),
+            new StepTemplate("SANGGYEONRYE", "최종 점검 및 당일 준비",           1)
+        );
+
+        List<RoadmapStep> steps = new ArrayList<>();
+        for (int i = 0; i < templates.size(); i++) {
+            StepTemplate t = templates.get(i);
+            LocalDate dueDate = (weddingDate != null)
+                    ? weddingDate.minusMonths(t.monthsBefore())
+                    : null;
+
+            RoadmapStep step = RoadmapStep.builder()
+                    .ownerOid(ownerOid)
+                    .stepType(t.stepType())
+                    .title(t.title())
+                    .isDone(false)
+                    .status("NOT_STARTED")
+                    .dueDate(dueDate)
+                    .hasDueDate(dueDate != null)
+                    .sortOrder(i + 1)
+                    .build();
+            steps.add(step);
+        }
+
+        List<RoadmapStep> saved = roadmapStepRepository.saveAll(steps);
+        log.info("기본 로드맵 {} 단계 일괄 생성 - ownerOid: {}", saved.size(), ownerOid);
+        return saved.stream().map(RoadmapStepResponse::from).toList();
+    }
+
+    /**
+     * 단계 순서를 일괄 변경한다.
+     * 소유권 검증 후 sortOrder를 업데이트한다.
+     * 요청의 oid 수와 실제 조회된 단계 수가 다르면 ROADMAP_REORDER_INVALID 예외를 발생시킨다.
+     *
+     * @param userOid 현재 사용자 OID
+     * @param req     순서 변경 요청
+     * @throws CustomException ROADMAP_REORDER_INVALID
+     */
+    public void reorderSteps(String userOid, ReorderRequest req) {
+        String ownerOid = getOwnerOid(userOid);
+
+        if (req.getOrders() == null || req.getOrders().isEmpty()) {
+            throw new CustomException(ErrorCode.ROADMAP_REORDER_INVALID);
+        }
+
+        List<String> oids = req.getOrders().stream()
+                .map(ReorderRequest.OrderItem::getOid)
+                .toList();
+        List<RoadmapStep> steps = roadmapStepRepository.findAllByOidInAndOwnerOid(oids, ownerOid);
+
+        if (steps.size() != oids.size()) {
+            throw new CustomException(ErrorCode.ROADMAP_REORDER_INVALID);
+        }
+
+        Map<String, RoadmapStep> stepMap = new java.util.HashMap<>();
+        steps.forEach(s -> stepMap.put(s.getOid(), s));
+
+        for (ReorderRequest.OrderItem item : req.getOrders()) {
+            RoadmapStep step = stepMap.get(item.getOid());
+            if (step != null) {
+                step.updateSortOrder(item.getSortOrder());
+            }
+        }
+        log.info("로드맵 단계 순서 변경 - ownerOid: {}, count: {}", ownerOid, steps.size());
+    }
+
+    /**
      * 웨딩 관리 단계와 연관 데이터를 모두 삭제한다.
      * 삭제 순서: 투어 → 경유지 → 연관 일정 → 단계
      *
@@ -238,8 +385,106 @@ public class RoadmapService {
         // sourceOid = stepOid + "_SANG" 로 연결된 일정 삭제 (SANGGYEONRYE 상견례 일정)
         // SANGGYEONRYE가 아닌 단계에서는 해당 sourceOid가 존재하지 않으므로 항상 실행해도 무관
         scheduleRepository.deleteBySourceOid(stepOid + "_SANG");
+        // 단계에 연결된 첨부파일 연쇄 삭제 (물리 파일 + 레코드)
+        attachmentService.deleteByRefOid(stepOid);
         roadmapStepRepository.deleteById(stepOid);
         log.info("로드맵 단계 삭제 - oid: {}, ownerOid: {}", stepOid, ownerOid);
+    }
+
+    // =========================================================
+    // 직접 로드맵 CRUD
+    // =========================================================
+
+    /**
+     * 소유자의 직접 로드맵 목록을 sortOrder 오름차순으로 조회한다.
+     * 각 로드맵에 소속된 단계 목록(group_oid 일치)을 함께 반환한다.
+     *
+     * @param userOid 현재 사용자 OID
+     * @return 직접 로드맵 목록 (단계 포함)
+     */
+    @Transactional(readOnly = true)
+    public List<CustomRoadmapResponse> getCustomRoadmaps(String userOid) {
+        String ownerOid = getOwnerOid(userOid);
+        List<CustomRoadmap> roadmaps = customRoadmapRepository.findByOwnerOidOrderBySortOrderAsc(ownerOid);
+        return roadmaps.stream().map(cr -> {
+            List<RoadmapStepResponse> steps = roadmapStepRepository
+                    .findByOwnerOidAndGroupOidOrderBySortOrderAsc(ownerOid, cr.getOid())
+                    .stream().map(RoadmapStepResponse::from).toList();
+            return CustomRoadmapResponse.from(cr, steps);
+        }).toList();
+    }
+
+    /**
+     * 직접 로드맵을 생성한다.
+     * 소유자당 최대 10개 제한이 있다.
+     *
+     * @param userOid 현재 사용자 OID
+     * @param req     직접 로드맵 생성 요청
+     * @return 생성된 직접 로드맵 응답
+     * @throws CustomException CUSTOM_ROADMAP_LIMIT_EXCEEDED (10개 초과)
+     */
+    public CustomRoadmapResponse createCustomRoadmap(String userOid, CreateCustomRoadmapRequest req) {
+        String ownerOid = getOwnerOid(userOid);
+        long count = customRoadmapRepository.countByOwnerOid(ownerOid);
+        if (count >= 10) {
+            throw new CustomException(ErrorCode.CUSTOM_ROADMAP_LIMIT_EXCEEDED);
+        }
+        int nextSortOrder = (int) count + 1;
+        CustomRoadmap cr = CustomRoadmap.builder()
+                .ownerOid(ownerOid)
+                .name(req.getName())
+                .sortOrder(nextSortOrder)
+                .build();
+        CustomRoadmap saved = customRoadmapRepository.save(cr);
+        log.info("직접 로드맵 생성 - oid: {}, name: {}, ownerOid: {}", saved.getOid(), saved.getName(), ownerOid);
+        return CustomRoadmapResponse.from(saved);
+    }
+
+    /**
+     * 직접 로드맵의 이름을 변경한다.
+     *
+     * @param userOid  현재 사용자 OID
+     * @param groupOid 변경할 직접 로드맵 OID
+     * @param req      이름 변경 요청
+     * @return 변경된 직접 로드맵 응답
+     * @throws CustomException CUSTOM_ROADMAP_NOT_FOUND
+     */
+    public CustomRoadmapResponse renameCustomRoadmap(String userOid, String groupOid,
+                                                     RenameCustomRoadmapRequest req) {
+        String ownerOid = getOwnerOid(userOid);
+        CustomRoadmap cr = customRoadmapRepository.findByOidAndOwnerOid(groupOid, ownerOid)
+                .orElseThrow(() -> new CustomException(ErrorCode.CUSTOM_ROADMAP_NOT_FOUND));
+        cr.rename(req.getName());
+        log.info("직접 로드맵 이름 변경 - oid: {}, newName: {}, ownerOid: {}", groupOid, req.getName(), ownerOid);
+        return CustomRoadmapResponse.from(cr);
+    }
+
+    /**
+     * 직접 로드맵과 소속된 모든 단계를 삭제한다.
+     * 삭제 순서: 각 단계별 투어 → 경유지 → 연관 일정 → 첨부파일 → 단계 일괄 삭제 → 로드맵 삭제
+     *
+     * @param userOid  현재 사용자 OID
+     * @param groupOid 삭제할 직접 로드맵 OID
+     * @throws CustomException CUSTOM_ROADMAP_NOT_FOUND
+     */
+    public void deleteCustomRoadmap(String userOid, String groupOid) {
+        String ownerOid = getOwnerOid(userOid);
+        customRoadmapRepository.findByOidAndOwnerOid(groupOid, ownerOid)
+                .orElseThrow(() -> new CustomException(ErrorCode.CUSTOM_ROADMAP_NOT_FOUND));
+
+        List<RoadmapStep> steps = roadmapStepRepository
+                .findByOwnerOidAndGroupOidOrderBySortOrderAsc(ownerOid, groupOid);
+
+        for (RoadmapStep step : steps) {
+            hallTourRepository.deleteByStepOid(step.getOid());
+            travelStopRepository.deleteByStepOid(step.getOid());
+            scheduleRepository.deleteBySourceOid(step.getOid());
+            scheduleRepository.deleteBySourceOid(step.getOid() + "_SANG");
+            attachmentService.deleteByRefOid(step.getOid());
+        }
+        roadmapStepRepository.deleteAll(steps);
+        customRoadmapRepository.deleteById(groupOid);
+        log.info("직접 로드맵 삭제 - oid: {}, stepCount: {}, ownerOid: {}", groupOid, steps.size(), ownerOid);
     }
 
     // =========================================================

@@ -4,7 +4,9 @@ import com.project.weddy.common.response.ApiResponse;
 import com.project.weddy.domain.roadmap.dto.request.AddTravelStopRequest;
 import com.project.weddy.domain.roadmap.dto.request.CreateHallTourRequest;
 import com.project.weddy.domain.roadmap.dto.request.CreateRoadmapStepRequest;
+import com.project.weddy.domain.roadmap.dto.request.ReorderRequest;
 import com.project.weddy.domain.roadmap.dto.request.UpdateRoadmapStepRequest;
+import com.project.weddy.domain.roadmap.dto.request.UpdateStatusRequest;
 import com.project.weddy.domain.roadmap.dto.response.HallTourResponse;
 import com.project.weddy.domain.roadmap.dto.response.RoadmapStepResponse;
 import com.project.weddy.domain.roadmap.dto.response.TravelStopResponse;
@@ -86,6 +88,37 @@ public class RoadmapController {
             @AuthenticationPrincipal String userOid,
             @PathVariable String stepOid) {
         return ApiResponse.success("단계 토글 성공", roadmapService.toggleDone(userOid, stepOid));
+    }
+
+    @Operation(summary = "웨딩 관리 단계 상태 변경",
+               description = "단계 상태를 NOT_STARTED | IN_PROGRESS | DONE 중 하나로 변경한다.")
+    @PatchMapping("/{stepOid}/status")
+    public ApiResponse<RoadmapStepResponse> updateStatus(
+            @AuthenticationPrincipal String userOid,
+            @PathVariable String stepOid,
+            @Valid @RequestBody UpdateStatusRequest req) {
+        return ApiResponse.success("단계 상태 변경 성공",
+                roadmapService.updateStatus(userOid, stepOid, req));
+    }
+
+    @Operation(summary = "기본 로드맵 일괄 생성",
+               description = "8개 기본 단계를 일괄 생성한다. 이미 단계가 있으면 409를 반환한다.")
+    @PostMapping("/init-default")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<List<RoadmapStepResponse>> initDefaultRoadmap(
+            @AuthenticationPrincipal String userOid) {
+        return ApiResponse.success("기본 로드맵 생성 성공",
+                roadmapService.initDefaultRoadmap(userOid));
+    }
+
+    @Operation(summary = "단계 순서 일괄 변경",
+               description = "단계들의 sortOrder를 일괄 업데이트한다.")
+    @PatchMapping("/reorder")
+    public ApiResponse<Void> reorderSteps(
+            @AuthenticationPrincipal String userOid,
+            @Valid @RequestBody ReorderRequest req) {
+        roadmapService.reorderSteps(userOid, req);
+        return ApiResponse.success("순서 변경 성공", null);
     }
 
     @Operation(summary = "웨딩 관리 단계 삭제",

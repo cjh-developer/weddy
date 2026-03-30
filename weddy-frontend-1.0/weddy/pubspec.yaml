@@ -62,6 +62,13 @@ dependencies:
   # Calendar
   table_calendar: ^3.1.2
 
+  # File picking
+  image_picker: ^1.1.2
+  file_picker: ^8.1.2
+
+  # URL 열기 (전화/웹 연결)
+  url_launcher: ^6.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

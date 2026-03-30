@@ -2,6 +2,7 @@ package com.project.weddy.domain.budget.service;
 
 import com.project.weddy.common.exception.CustomException;
 import com.project.weddy.common.exception.ErrorCode;
+import com.project.weddy.domain.attachment.service.AttachmentService;
 import com.project.weddy.domain.budget.dto.request.CreateBudgetItemRequest;
 import com.project.weddy.domain.budget.dto.request.CreateBudgetRequest;
 import com.project.weddy.domain.budget.dto.request.UpdateBudgetItemRequest;
@@ -46,6 +47,7 @@ public class BudgetService {
     private final BudgetItemRepository budgetItemRepository;
     private final BudgetSettingsRepository budgetSettingsRepository;
     private final CoupleRepository coupleRepository;
+    private final AttachmentService attachmentService;
 
     /**
      * 사용자의 소유자 OID를 반환한다.
@@ -138,6 +140,8 @@ public class BudgetService {
         String ownerOid = getOwnerOid(userOid);
         validateBudgetOwnership(budgetOid, ownerOid);
         budgetItemRepository.deleteByBudgetOid(budgetOid);
+        // 예산 카테고리에 연결된 첨부파일 연쇄 삭제 (물리 파일 + 레코드)
+        attachmentService.deleteByRefOid(budgetOid);
         budgetRepository.deleteById(budgetOid);
         log.info("예산 삭제 - budgetOid: {}, ownerOid: {}", budgetOid, ownerOid);
     }

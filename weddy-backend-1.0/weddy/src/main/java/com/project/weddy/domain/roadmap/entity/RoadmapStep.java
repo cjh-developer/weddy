@@ -45,11 +45,25 @@ public class RoadmapStep {
     @Column(name = "step_type", length = 30, nullable = false)
     private String stepType;
 
+    /**
+     * 소속 직접 로드맵 OID.
+     * NULL이면 기본 로드맵에 속하는 단계이고, 값이 있으면 해당 직접 로드맵 컨테이너에 속한다.
+     */
+    @Column(name = "group_oid", length = 14)
+    private String groupOid;
+
     @Column(name = "title", length = 100, nullable = false)
     private String title;
 
     @Column(name = "is_done", nullable = false)
     private boolean isDone;
+
+    /**
+     * 단계 진행 상태. NOT_STARTED | IN_PROGRESS | DONE
+     * isDone=true이면 DONE, isDone=false이면 NOT_STARTED 또는 IN_PROGRESS.
+     */
+    @Column(name = "status", length = 15, nullable = false)
+    private String status;
 
     @Column(name = "due_date")
     private LocalDate dueDate;
@@ -64,7 +78,7 @@ public class RoadmapStep {
      * 단계별 특화 데이터 (JSON 문자열).
      * 예: BUDGET → {"totalBudget":50000000}, HALL → {"totalFee":0,"guestCount":0}
      */
-    @Column(name = "details", columnDefinition = "TEXT")
+    @Column(name = "details", columnDefinition = "MEDIUMTEXT")
     private String details;
 
     @CreationTimestamp
@@ -79,6 +93,9 @@ public class RoadmapStep {
     private void prePersist() {
         if (this.oid == null) {
             this.oid = OidGenerator.generate();
+        }
+        if (this.status == null) {
+            this.status = "NOT_STARTED";
         }
     }
 
@@ -96,7 +113,15 @@ public class RoadmapStep {
     public void update(String title, Boolean isDone, LocalDate dueDate,
                        Boolean hasDueDate, String details, boolean clearDueDate) {
         if (title != null) this.title = title;
-        if (isDone != null) this.isDone = isDone;
+        if (isDone != null) {
+            this.isDone = isDone;
+            // isDone 변경 시 status 연동: true → DONE, false + 현재 DONE → NOT_STARTED
+            if (isDone) {
+                this.status = "DONE";
+            } else if ("DONE".equals(this.status)) {
+                this.status = "NOT_STARTED";
+            }
+        }
         if (clearDueDate) {
             this.dueDate = null;
         } else if (dueDate != null) {
@@ -108,8 +133,30 @@ public class RoadmapStep {
 
     /**
      * 완료 여부를 토글한다.
+     * isDone이 true가 되면 status를 DONE으로, false가 되면 NOT_STARTED로 변경한다.
      */
     public void toggleDone() {
         this.isDone = !this.isDone;
+        this.status = this.isDone ? "DONE" : "NOT_STARTED";
+    }
+
+    /**
+     * 단계 상태를 직접 변경한다 (NOT_STARTED | IN_PROGRESS | DONE).
+     * isDone은 DONE 여부에 따라 연동 갱신된다.
+     *
+     * @param newStatus 변경할 상태값
+     */
+    public void updateStatus(String newStatus) {
+        this.status = newStatus;
+        this.isDone = "DONE".equals(newStatus);
+    }
+
+    /**
+     * 단계의 정렬 순서를 변경한다.
+     *
+     * @param sortOrder 새 정렬 순서
+     */
+    public void updateSortOrder(int sortOrder) {
+        this.sortOrder = sortOrder;
     }
 }

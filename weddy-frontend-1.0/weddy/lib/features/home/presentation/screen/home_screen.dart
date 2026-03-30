@@ -18,8 +18,8 @@ import 'package:weddy/features/couple/presentation/notifier/couple_notifier.dart
 // Dark Glassmorphism 색상 상수
 // ---------------------------------------------------------------------------
 
-const _kBg1 = Color(0xFF0D0D1A);
-const _kBg2 = Color(0xFF1B0929);
+const _kBg1 = Color(0xFF080810);
+const _kBg2 = Color(0xFF0C0820);
 const _kGlass = Color(0x14FFFFFF);        // white 8%
 const _kGlassBorder = Color(0x33FFFFFF);  // white 20%
 const _kPink = Color(0xFFEC4899);
@@ -64,13 +64,6 @@ String _greeting() {
   return '저녁';
 }
 
-String _formatDate(DateTime date) {
-  const months = [
-    '', '1월', '2월', '3월', '4월', '5월', '6월',
-    '7월', '8월', '9월', '10월', '11월', '12월',
-  ];
-  return '${date.year}년 ${months[date.month]} ${date.day}일';
-}
 
 String _dDayText(DateTime weddingDate) {
   final now = DateTime.now();
@@ -593,14 +586,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: const LinearProgressIndicator(
-              value: 0,
-              minHeight: 6,
-              backgroundColor: Color(0x3360A5FA),
-              valueColor: AlwaysStoppedAnimation<Color>(_kIconCalendar),
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const pct = 0.0;
+              return Stack(
+                children: [
+                  Container(
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  FractionallySizedBox(
+                    widthFactor: pct.clamp(0.0, 1.0),
+                    child: Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [_kIconCalendar, Color(0xFF38BDF8)],
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 10),
           const Row(
@@ -652,18 +664,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       itemBuilder: (context, i) {
         final menu = menus[i];
         final iconColor = menuColors[i];
-        final iconBgColor = Color.fromARGB(
-          26,
-          iconColor.red,
-          iconColor.green,
-          iconColor.blue,
-        );
         return GestureDetector(
           onTap: () {
             if (i == 0) {
               context.push(AppRoutes.schedule);
             } else if (i == 1) {
               context.push(AppRoutes.budget);
+            } else if (i == 2) {
+              context.push(AppRoutes.vendor);
             } else if (i == 5) {
               context.push(AppRoutes.roadmap);
             } else {
@@ -683,8 +691,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: iconBgColor,
+                    gradient: LinearGradient(
+                      colors: [
+                        iconColor.withOpacity(0.15),
+                        iconColor.withOpacity(0.05),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                     borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: iconColor.withOpacity(0.2),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: iconColor.withOpacity(0.3),
+                      width: 1,
+                    ),
                   ),
                   child: Icon(menu.icon, color: iconColor, size: 18),
                 ),
@@ -1099,35 +1125,36 @@ class _DDayChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ddayText = _dDayText(weddingDate);
-    final isToday = ddayText == 'D-DAY';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: _kGlass,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isToday ? _kPink : const Color(0x4D60A5FA),
-          width: isToday ? 1.5 : 1,
+        gradient: const LinearGradient(
+          colors: [_kPink, Color(0xFF7C3AED)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
         ),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: _kPink.withOpacity(0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            isToday ? '오늘 결혼식!' : _formatDate(weddingDate),
-            style: const TextStyle(
-              fontSize: 12,
-              color: _kTextMute,
-            ),
-          ),
-          const SizedBox(width: 8),
+          const Icon(Icons.favorite, color: Colors.white, size: 14),
+          const SizedBox(width: 6),
           Text(
             ddayText,
-            style: TextStyle(
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
               fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: isToday ? _kPink : _kText,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -1929,7 +1956,8 @@ class _TimelineTile extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
               child: Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
+                clipBehavior: Clip.hardEdge,
                 decoration: BoxDecoration(
                   color: item.isActive
                       ? const Color(0x1A60A5FA)
@@ -1947,6 +1975,7 @@ class _TimelineTile extends StatelessWidget {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
                       children: [
@@ -2124,15 +2153,34 @@ class _BudgetSummaryCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: usageRatio,
-                minHeight: 6,
-                backgroundColor: const Color(0x2234D399),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                    isOver ? _kUrgent : _kIconBudget),
-              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  children: [
+                    Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: usageRatio.clamp(0.0, 1.0),
+                      child: Container(
+                        height: 8,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isOver
+                                ? [_kUrgent, const Color(0xFFFCA5A5)]
+                                : [_kIconBudget, const Color(0xFF6EE7B7)],
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -2194,7 +2242,7 @@ class _GlassBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xCC0D0D1A), // dark 80%
+        color: Color(0xCC080810), // dark 80%
         border: Border(
           top: BorderSide(color: Color(0x1AFFFFFF), width: 1),
         ),

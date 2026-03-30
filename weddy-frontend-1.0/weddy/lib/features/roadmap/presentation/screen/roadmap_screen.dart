@@ -1,20 +1,25 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import 'package:weddy/features/attachment/presentation/widget/attachment_section_widget.dart';
 import 'package:weddy/features/auth/domain/model/auth_state.dart';
 import 'package:weddy/features/auth/presentation/notifier/auth_notifier.dart';
+import 'package:weddy/features/roadmap/data/model/custom_roadmap_model.dart';
 import 'package:weddy/features/roadmap/data/model/hall_tour_model.dart';
 import 'package:weddy/features/roadmap/data/model/roadmap_step_model.dart';
+import 'package:weddy/features/roadmap/presentation/notifier/custom_roadmap_notifier.dart';
 import 'package:weddy/features/roadmap/presentation/notifier/roadmap_notifier.dart';
 
 // ---------------------------------------------------------------------------
 // 색상 상수
 // ---------------------------------------------------------------------------
 
-const _kBg1 = Color(0xFF0D0D1A);
-const _kBg2 = Color(0xFF1B0929);
+const _kBg1 = Color(0xFF080810);
+const _kBg2 = Color(0xFF0C0820);
 const _kGlass = Color(0x14FFFFFF);
 const _kGlassBorder = Color(0x33FFFFFF);
 const _kPink = Color(0xFFEC4899);
@@ -43,28 +48,71 @@ String _fmtMoney(int amount) {
 // ---------------------------------------------------------------------------
 
 class RoadmapScreen extends ConsumerStatefulWidget {
-  const RoadmapScreen({super.key});
+  final bool showBackButton;
+  final VoidCallback? onBack;
+  const RoadmapScreen({super.key, this.showBackButton = false, this.onBack});
 
   @override
   ConsumerState<RoadmapScreen> createState() => _RoadmapScreenState();
 }
 
-class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
+class _RoadmapScreenState extends ConsumerState<RoadmapScreen>
+    with TickerProviderStateMixin {
+
+  TabController? _tabController;
+
+  // ── TabController 초기화 (동적 탭 수 지원) ───────────────────────────────
+
+  void _initTabController({int tabCount = 2, int jumpTo = 0}) {
+    final old = _tabController;
+    final count = tabCount < 2 ? 2 : tabCount;
+    final controller = TabController(length: count, vsync: this);
+    if (jumpTo > 0 && jumpTo < count) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) controller.animateTo(jumpTo);
+      });
+    }
+    controller.addListener(() {
+      if (mounted) setState(() {});
+    });
+    setState(() => _tabController = controller);
+    old?.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
+    _initTabController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final authState = ref.read(authNotifierProvider);
       if (authState is! AuthAuthenticated) return;
-      ref.read(roadmapNotifierProvider.notifier).loadSteps();
+      // Initial / Error 상태일 때만 loadSteps() 호출 (Loaded/Loading 중복 방지)
+      final current = ref.read(roadmapNotifierProvider);
+      if (current is RoadmapInitial || current is RoadmapError) {
+        ref.read(roadmapNotifierProvider.notifier).loadSteps();
+      }
+      // 직접 로드맵도 초기 로드
+      final customCurrent = ref.read(customRoadmapNotifierProvider);
+      if (customCurrent is CustomRoadmapInitial ||
+          customCurrent is CustomRoadmapError) {
+        ref.read(customRoadmapNotifierProvider.notifier).loadCustomRoadmaps();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController?.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final roadmapState = ref.watch(roadmapNotifierProvider);
+    final customState = ref.watch(customRoadmapNotifierProvider);
 
+    // 에러 스낵바
     ref.listen<RoadmapState>(roadmapNotifierProvider, (prev, next) {
       if (next is RoadmapError) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -72,13 +120,26 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
             content: Text(next.message),
             backgroundColor: const Color(0xFF2A2A3E),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
         ref.read(roadmapNotifierProvider.notifier).clearError();
       }
     });
+
+    // customRoadmaps가 로드되면 탭 컨트롤러 재초기화
+    final customRoadmaps = customState is CustomRoadmapLoaded
+        ? customState.roadmaps
+        : <CustomRoadmapModel>[];
+    final expectedTabCount = 1 + customRoadmaps.length + 1; // 기본 + custom들 + "+"
+    if (_tabController == null || _tabController!.length != expectedTabCount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _initTabController(tabCount: expectedTabCount);
+        }
+      });
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -104,14 +165,17 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new, color: _kText, size: 18),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
+      automaticallyImplyLeading: false,
+      leading: widget.showBackButton
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, color: _kText, size: 18),
+              onPressed: widget.onBack ?? () => Navigator.of(context).pop(),
+            )
+          : null,
       title: const Text(
         '웨딩 관리',
-        style: TextStyle(
-            color: _kText, fontSize: 17, fontWeight: FontWeight.w700),
+        style:
+            TextStyle(color: _kText, fontSize: 17, fontWeight: FontWeight.w700),
       ),
       centerTitle: true,
     );
@@ -125,122 +189,172 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
     }
 
     if (state is RoadmapLoaded) {
-      final steps = state.steps;
-      if (steps.isEmpty) {
-        return _buildNoDataState(context);
+      if (_tabController == null) {
+        return const Center(
+          child: CircularProgressIndicator(color: _kPink, strokeWidth: 2),
+        );
       }
 
-      final authState = ref.read(authNotifierProvider);
-      final weddingDate = authState is AuthAuthenticated
-          ? authState.user.weddingDate
-          : null;
+      // 기본 탭: groupOid가 null인 단계 (서버가 이미 필터링하지만 클라이언트도 방어)
+      final basicSteps =
+          state.steps.where((s) => s.groupOid == null).toList();
 
-      return ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        itemCount: steps.length + 1,
-        itemBuilder: (ctx, i) {
-          if (i == 0) return _buildHeaderCard(steps);
-          final step = steps[i - 1];
-          return _RoadmapStepCard(
-            step: step,
-            weddingDate: weddingDate,
-            onToggle: () =>
-                ref.read(roadmapNotifierProvider.notifier).toggleDone(step.oid),
-            onTap: () => _showStepDetailBottomSheet(context, step),
-          );
-        },
+      final customState = ref.watch(customRoadmapNotifierProvider);
+      final customRoadmaps = customState is CustomRoadmapLoaded
+          ? customState.roadmaps
+          : <CustomRoadmapModel>[];
+
+      final authState = ref.read(authNotifierProvider);
+      final weddingDate =
+          authState is AuthAuthenticated ? authState.user.weddingDate : null;
+
+      // 탭 수 검증 (1 + customRoadmaps.length + 1)
+      final expectedTabCount = 1 + customRoadmaps.length + 1;
+      if (_tabController!.length != expectedTabCount) {
+        return const Center(
+          child: CircularProgressIndicator(color: _kPink, strokeWidth: 2),
+        );
+      }
+
+      return Column(
+        children: [
+          _buildTabBar(basicSteps, customRoadmaps),
+          const Divider(height: 1, color: Color(0x22FFFFFF)),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController!,
+              children: [
+                // Tab 0 — 기본 로드맵
+                _BasicRoadmapTimelineView(
+                  steps: basicSteps,
+                  weddingDate: weddingDate,
+                  onUpdateStatus: (oid, newStatus) =>
+                      ref.read(roadmapNotifierProvider.notifier).updateStatus(oid, newStatus),
+                  onTap: (step) => _showStepDetailBottomSheet(context, step),
+                  onInitDefault: () =>
+                      ref.read(roadmapNotifierProvider.notifier).initDefaultRoadmap(),
+                ),
+                // Tab 1~N — 직접 로드맵들
+                ...customRoadmaps.map((roadmap) => _CustomRoadmapTabView(
+                  roadmap: roadmap,
+                  weddingDate: weddingDate,
+                  onUpdateStatus: (oid, newStatus) =>
+                      ref.read(roadmapNotifierProvider.notifier).updateStatus(oid, newStatus),
+                  onTap: (step) => _showStepDetailBottomSheet(context, step),
+                  onShowMenu: () => _showCustomRoadmapMenu(context, roadmap),
+                )),
+                // 마지막 탭 — "+" (빈 안내 화면)
+                const _AddRoadmapTab(),
+              ],
+            ),
+          ),
+        ],
       );
     }
 
-    // RoadmapInitial or error → retry UI
     return _buildEmptyState(context);
   }
 
-  // 로드 성공했지만 데이터가 없는 경우
-  Widget _buildNoDataState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.auto_awesome_outlined,
-            size: 56,
-            color: _kPink.withOpacity(0.4),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            '웨딩 관리 단계가 없습니다.',
-            style: TextStyle(fontSize: 14, color: _kTextSub),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '단계를 추가하여 결혼 준비를 시작하세요.',
-            style: TextStyle(fontSize: 12, color: _kTextMute),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: () =>
-                ref.read(roadmapNotifierProvider.notifier).loadSteps(),
-            child: const Text(
-              '새로고침',
-              style: TextStyle(color: _kPink),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildTabBar(
+      List<RoadmapStepModel> basicSteps,
+      List<CustomRoadmapModel> customRoadmaps) {
+    if (_tabController == null) return const SizedBox.shrink();
 
-  Widget _buildHeaderCard(List<RoadmapStepModel> steps) {
-    final total = steps.length;
-    final done = steps.where((s) => s.isDone).length;
-    final percent = total == 0 ? 0.0 : done / total;
+    final doneCnt = basicSteps.where((s) => s.isDone).length;
+    final totalCnt = basicSteps.length;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _kGlass,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _kGlassBorder, width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return TabBar(
+      controller: _tabController!,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      indicatorColor: _kPink,
+      indicatorWeight: 2,
+      labelColor: _kText,
+      unselectedLabelColor: _kTextMute,
+      labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      unselectedLabelStyle:
+          const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+      dividerColor: Colors.transparent,
+      tabs: [
+        // Tab 0 — 기본 로드맵
+        Tab(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                '결혼 준비 로드맵',
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: _kText),
-              ),
-              Text(
-                '$done / $total 완료',
-                style: const TextStyle(fontSize: 12, color: _kTextSub),
+              const Icon(Icons.auto_awesome, size: 14),
+              const SizedBox(width: 6),
+              const Text('기본 로드맵'),
+              const SizedBox(width: 6),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _kPink.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _kPink.withOpacity(0.3), width: 1),
+                ),
+                child: Text(
+                  '$doneCnt/$totalCnt',
+                  style: const TextStyle(fontSize: 10, color: _kPink),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: percent,
-              minHeight: 6,
-              backgroundColor: const Color(0x3310B981),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(_kDone),
+        ),
+        // Tab 1~N — 직접 로드맵들
+        ...customRoadmaps.map((roadmap) {
+          final doneCount = roadmap.steps.where((s) => s.isDone).length;
+          final totalCount = roadmap.steps.length;
+          return Tab(
+            child: GestureDetector(
+              onLongPress: () => _showCustomRoadmapMenu(context, roadmap),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.edit_note, size: 14),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 80),
+                    child: Text(
+                      roadmap.name,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                  if (totalCount > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF60A5FA).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: const Color(0xFF60A5FA).withOpacity(0.3),
+                            width: 1),
+                      ),
+                      child: Text(
+                        '$doneCount/$totalCount',
+                        style: const TextStyle(
+                            fontSize: 10, color: Color(0xFF60A5FA)),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
+          );
+        }),
+        // 마지막 탭 — "+"
+        const Tab(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Icon(Icons.add_circle_outline,
+                size: 20, color: Color(0xFF60A5FA)),
           ),
-          const SizedBox(height: 6),
-          const Text(
-            '각 단계를 탭해서 세부 정보를 입력하세요.',
-            style: TextStyle(fontSize: 11, color: _kTextMute),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -263,10 +377,7 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
           TextButton(
             onPressed: () =>
                 ref.read(roadmapNotifierProvider.notifier).loadSteps(),
-            child: const Text(
-              '다시 시도',
-              style: TextStyle(color: _kPink),
-            ),
+            child: const Text('다시 시도', style: TextStyle(color: _kPink)),
           ),
         ],
       ),
@@ -274,101 +385,1171 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
   }
 
   Widget _buildFab() {
-    return FloatingActionButton.extended(
-      backgroundColor: _kPink,
-      foregroundColor: Colors.white,
-      icon: const Icon(Icons.add, size: 20),
-      label: const Text('단계 추가', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-      onPressed: () {
-        final scaffoldContext = context;
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => _AddStepBottomSheet(
-            scaffoldContext: scaffoldContext,
-            notifier: ref.read(roadmapNotifierProvider.notifier),
-            existingStepTypes: (ref.read(roadmapNotifierProvider) is RoadmapLoaded)
-                ? (ref.read(roadmapNotifierProvider) as RoadmapLoaded).steps.map((s) => s.stepType).toList()
-                : [],
-          ),
-        );
-      },
-    );
+    final tabIndex = _tabController?.index;
+    if (tabIndex == null) return const SizedBox.shrink();
+
+    final stateVal = ref.read(roadmapNotifierProvider);
+    if (stateVal is! RoadmapLoaded) return const SizedBox.shrink();
+
+    final customState = ref.read(customRoadmapNotifierProvider);
+    final customRoadmaps = customState is CustomRoadmapLoaded
+        ? customState.roadmaps
+        : <CustomRoadmapModel>[];
+
+    final isBasicTab = tabIndex == 0;
+    final isPlusTab = tabIndex == 1 + customRoadmaps.length;
+    final isCustomTab =
+        !isBasicTab && !isPlusTab && tabIndex >= 1 && tabIndex <= customRoadmaps.length;
+
+    // "+" 탭: 새 직접 로드맵 생성
+    if (isPlusTab) {
+      return FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF60A5FA),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add, size: 20),
+        label: const Text('로드맵 추가',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        onPressed: () => _showCreateRoadmapDialog(context, customRoadmaps.length),
+      );
+    }
+
+    // 기본 탭 FAB
+    if (isBasicTab) {
+      final basicExisting = stateVal.steps
+          .where((s) => s.groupOid == null && s.stepType != 'ETC')
+          .map((s) => s.stepType)
+          .toList();
+      return FloatingActionButton.extended(
+        backgroundColor: _kPink,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add, size: 20),
+        label: const Text('단계 추가',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        onPressed: () {
+          showDialog(
+            context: context,
+            barrierDismissible: true,
+            barrierColor: Colors.black54,
+            builder: (ctx) {
+              final maxH = MediaQuery.of(ctx).size.height * 0.85;
+              final maxW = MediaQuery.of(ctx).size.width - 40;
+              return Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxH, maxWidth: maxW),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: _AddStepBottomSheet(
+                      scaffoldContext: context,
+                      notifier: ref.read(roadmapNotifierProvider.notifier),
+                      existingStepTypes: basicExisting,
+                      hideEtc: true,
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+
+    // 직접 로드맵 탭 FAB
+    if (isCustomTab) {
+      final roadmap = customRoadmaps[tabIndex - 1];
+      return FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF60A5FA),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add, size: 20),
+        label: const Text('항목 추가',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        onPressed: () {
+          showDialog(
+            context: context,
+            barrierDismissible: true,
+            barrierColor: Colors.black54,
+            builder: (ctx) {
+              final maxH = MediaQuery.of(ctx).size.height * 0.85;
+              final maxW = MediaQuery.of(ctx).size.width - 40;
+              return Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxH, maxWidth: maxW),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: _AddStepBottomSheet(
+                      scaffoldContext: context,
+                      notifier: ref.read(roadmapNotifierProvider.notifier),
+                      existingStepTypes: const [],
+                      hideEtc: false,
+                      groupOid: roadmap.oid,
+                      onSuccess: () {
+                        ref
+                            .read(customRoadmapNotifierProvider.notifier)
+                            .loadCustomRoadmaps();
+                      },
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   void _showStepDetailBottomSheet(
       BuildContext context, RoadmapStepModel step) {
-    final scaffoldContext = context;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black54,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
+        child: _StepDetailBottomSheet(
+          step: step,
+          scaffoldContext: context,
+          notifier: ref.read(roadmapNotifierProvider.notifier),
+          onSaved: step.groupOid != null
+              ? () => ref
+                  .read(customRoadmapNotifierProvider.notifier)
+                  .loadCustomRoadmaps()
+              : null,
+          onDeleted: step.groupOid != null
+              ? () => ref
+                  .read(customRoadmapNotifierProvider.notifier)
+                  .loadCustomRoadmaps()
+              : null,
+        ),
+      ),
+    );
+  }
+
+  // ── 직접 로드맵 관리 메서드 ──────────────────────────────────────────────
+
+  void _showCustomRoadmapMenu(BuildContext context, CustomRoadmapModel roadmap) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _StepDetailBottomSheet(
-        step: step,
-        scaffoldContext: scaffoldContext,
-        notifier: ref.read(roadmapNotifierProvider.notifier),
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0x44FFFFFF),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                roadmap.name,
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading:
+                  const Icon(Icons.edit_outlined, color: Colors.white70),
+              title: const Text('이름 변경',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                _showRenameDialog(context, roadmap);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline,
+                  color: Color(0xFFEF4444)),
+              title: const Text('삭제',
+                  style: TextStyle(color: Color(0xFFEF4444))),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDeleteCustomRoadmap(context, roadmap);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRenameDialog(BuildContext context, CustomRoadmapModel roadmap) {
+    final ctrl = TextEditingController(text: roadmap.name);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('로드맵 이름 변경',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700)),
+        content: TextField(
+          controller: ctrl,
+          style: const TextStyle(color: Colors.white),
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: '로드맵 이름',
+            hintStyle: const TextStyle(color: Color(0x66FFFFFF)),
+            filled: true,
+            fillColor: const Color(0x14FFFFFF),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0x33FFFFFF)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFEC4899)),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소',
+                style: TextStyle(color: Color(0xAAFFFFFF))),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newName = ctrl.text.trim();
+              if (newName.isEmpty) return;
+              Navigator.pop(context);
+              await ref
+                  .read(customRoadmapNotifierProvider.notifier)
+                  .renameCustomRoadmap(roadmap.oid, newName);
+            },
+            child: const Text('변경',
+                style: TextStyle(color: Color(0xFFEC4899))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteCustomRoadmap(
+      BuildContext context, CustomRoadmapModel roadmap) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('로드맵 삭제',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700)),
+        content: Text(
+          '"${roadmap.name}" 로드맵과 소속 항목을 모두 삭제합니다.',
+          style: const TextStyle(color: Color(0xAAFFFFFF), fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소',
+                style: TextStyle(color: Color(0xAAFFFFFF))),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await ref
+                  .read(customRoadmapNotifierProvider.notifier)
+                  .deleteCustomRoadmap(roadmap.oid);
+              // 기본 로드맵 탭으로 이동
+              _tabController?.animateTo(0);
+            },
+            child: const Text('삭제',
+                style: TextStyle(color: Color(0xFFEF4444))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateRoadmapDialog(BuildContext context, int currentCount) {
+    if (currentCount >= 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('직접 로드맵은 최대 10개까지 만들 수 있습니다.'),
+          backgroundColor: Color(0xFF2A2A3E),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('새 로드맵 추가',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700)),
+        content: TextField(
+          controller: ctrl,
+          style: const TextStyle(color: Colors.white),
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: '로드맵 이름 (예: 스드메, 신혼여행)',
+            hintStyle: const TextStyle(color: Color(0x66FFFFFF)),
+            filled: true,
+            fillColor: const Color(0x14FFFFFF),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0x33FFFFFF)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF60A5FA)),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소',
+                style: TextStyle(color: Color(0xAAFFFFFF))),
+          ),
+          TextButton(
+            onPressed: () async {
+              final name = ctrl.text.trim();
+              if (name.isEmpty) return;
+              Navigator.pop(context);
+              final newRoadmap = await ref
+                  .read(customRoadmapNotifierProvider.notifier)
+                  .createCustomRoadmap(name);
+              if (newRoadmap != null && mounted) {
+                // 새로 생성된 탭으로 이동
+                final latestCustomState =
+                    ref.read(customRoadmapNotifierProvider);
+                final roadmaps = latestCustomState is CustomRoadmapLoaded
+                    ? latestCustomState.roadmaps
+                    : <CustomRoadmapModel>[];
+                final newIndex =
+                    roadmaps.indexWhere((r) => r.oid == newRoadmap.oid);
+                if (newIndex >= 0) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _tabController?.animateTo(newIndex + 1);
+                  });
+                }
+              }
+            },
+            child: const Text('추가',
+                style: TextStyle(color: Color(0xFF60A5FA))),
+          ),
+        ],
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// 단계 카드 위젯
+// 기본 로드맵 — 기간별 그룹 카드 뷰
 // ---------------------------------------------------------------------------
 
-class _RoadmapStepCard extends StatelessWidget {
+class _BasicRoadmapTimelineView extends StatelessWidget {
+  final List<RoadmapStepModel> steps;
+  final DateTime? weddingDate;
+  final void Function(String oid, String newStatus) onUpdateStatus;
+  final void Function(RoadmapStepModel step) onTap;
+  final VoidCallback? onInitDefault;
+
+  const _BasicRoadmapTimelineView({
+    required this.steps,
+    this.weddingDate,
+    required this.onUpdateStatus,
+    required this.onTap,
+    this.onInitDefault,
+  });
+
+  List<_PeriodGroup> _buildGroups() {
+    final Map<String, List<RoadmapStepModel>> groupMap = {};
+    final Map<String, DateTime?> groupDates = {};
+    for (final step in steps) {
+      final label = (weddingDate != null && step.dueDate != null)
+          ? step.dDayText(weddingDate!)
+          : step.dueDate != null
+              ? DateFormat('yyyy.MM.dd').format(step.dueDate!)
+              : '날짜 미정';
+      groupMap.putIfAbsent(label, () => []).add(step);
+      groupDates.putIfAbsent(label, () => step.dueDate);
+    }
+    return groupMap.entries
+        .map((e) => _PeriodGroup(label: e.key, dueDate: groupDates[e.key], steps: e.value))
+        .toList()
+      ..sort((a, b) {
+        if (a.dueDate == null && b.dueDate == null) return 0;
+        if (a.dueDate == null) return 1;
+        if (b.dueDate == null) return -1;
+        return a.dueDate!.compareTo(b.dueDate!);
+      });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (steps.isEmpty) return _buildEmptyBasic();
+    final groups = _buildGroups();
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+      itemCount: groups.length + 1,
+      itemBuilder: (ctx, i) {
+        if (i == 0) return _buildProgressHeader();
+        final group = groups[i - 1];
+        return _PeriodGroupTile(
+          key: ValueKey(group.label),
+          group: group,
+          isLast: i == groups.length,
+          onUpdateStatus: onUpdateStatus,
+          onTap: onTap,
+        );
+      },
+    );
+  }
+
+  // 진행률 헤더 (컴팩트)
+  Widget _buildProgressHeader() {
+    final total = steps.length;
+    final done = steps.where((s) => s.status == 'DONE').length;
+    final inProgress = steps.where((s) => s.status == 'IN_PROGRESS').length;
+    final notStarted = total - done - inProgress;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '결혼 준비 여정',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kText),
+              ),
+              Text(
+                '$done / $total 완료',
+                style: const TextStyle(fontSize: 12, color: _kTextSub),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: SizedBox(
+              height: 5,
+              child: total == 0
+                  ? Container(color: const Color(0x2210B981))
+                  : Row(
+                      children: [
+                        if (done > 0) Flexible(flex: done, child: Container(color: _kDone)),
+                        if (inProgress > 0) Flexible(flex: inProgress, child: Container(color: const Color(0xFFF59E0B))),
+                        if (notStarted > 0) Flexible(flex: notStarted, child: Container(color: const Color(0x2210B981))),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _StatusBadge('완료', done, _kDone),
+              const SizedBox(width: 6),
+              _StatusBadge('진행중', inProgress, const Color(0xFFF59E0B)),
+              const SizedBox(width: 6),
+              _StatusBadge('미진행', notStarted, const Color(0x66FFFFFF)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyBasic() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: _kPink.withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(color: _kPink.withOpacity(0.3), width: 1.5),
+            ),
+            child: const Icon(Icons.auto_awesome, size: 32, color: _kPink),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '기본 로드맵이 없습니다.',
+            style: TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w700, color: _kText),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '결혼 날짜 기준 8단계를 자동 생성합니다.',
+            style: TextStyle(fontSize: 13, color: _kTextSub),
+          ),
+          const SizedBox(height: 24),
+          if (onInitDefault != null)
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _kPink,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              icon: const Icon(Icons.auto_awesome,
+                  size: 18, color: Colors.white),
+              label: const Text(
+                '기본 로드맵 생성',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white),
+              ),
+              onPressed: onInitDefault,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 직접 로드맵 탭 뷰 (CustomRoadmap 컨테이너 한 개에 해당)
+// ---------------------------------------------------------------------------
+
+class _CustomRoadmapTabView extends StatefulWidget {
+  final CustomRoadmapModel roadmap;
+  final DateTime? weddingDate;
+  final void Function(String oid, String newStatus) onUpdateStatus;
+  final void Function(RoadmapStepModel step) onTap;
+  final VoidCallback? onShowMenu;
+
+  const _CustomRoadmapTabView({
+    required this.roadmap,
+    this.weddingDate,
+    required this.onUpdateStatus,
+    required this.onTap,
+    this.onShowMenu,
+  });
+
+  @override
+  State<_CustomRoadmapTabView> createState() => _CustomRoadmapTabViewState();
+}
+
+class _CustomRoadmapTabViewState extends State<_CustomRoadmapTabView> {
+  bool _isEditMode = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = widget.roadmap.steps;
+
+    if (steps.isEmpty) {
+      return _buildEmpty();
+    }
+
+    return Column(
+      children: [
+        // 헤더 (이름 + 진행률 + 순서 변경 버튼)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.roadmap.name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${steps.where((s) => s.isDone).length}/${steps.length} 완료',
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xAAFFFFFF)),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton.icon(
+                    icon: Icon(
+                      _isEditMode ? Icons.check : Icons.swap_vert,
+                      size: 16,
+                      color: const Color(0xFF60A5FA),
+                    ),
+                    label: Text(
+                      _isEditMode ? '완료' : '순서 변경',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF60A5FA)),
+                    ),
+                    onPressed: () => setState(() => _isEditMode = !_isEditMode),
+                  ),
+                  if (widget.onShowMenu != null)
+                    IconButton(
+                      icon: const Icon(Icons.more_vert, color: Color(0x88FFFFFF), size: 18),
+                      onPressed: widget.onShowMenu,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _isEditMode
+              ? _buildReorderableList(steps)
+              : _buildTimeline(steps),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimeline(List<RoadmapStepModel> steps) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
+      itemCount: steps.length,
+      itemBuilder: (ctx, i) {
+        final step = steps[i];
+        return _TimelineStepNode(
+          key: ValueKey(step.oid),
+          step: step,
+          weddingDate: widget.weddingDate,
+          isFirst: i == 0,
+          isLast: i == steps.length - 1,
+          onUpdateStatus: () =>
+              widget.onUpdateStatus(step.oid, step.nextStatus),
+          onTap: () => widget.onTap(step),
+        );
+      },
+    );
+  }
+
+  Widget _buildReorderableList(List<RoadmapStepModel> steps) {
+    return Consumer(
+      builder: (context, ref, _) => ReorderableListView.builder(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
+        itemCount: steps.length,
+        onReorder: (oldIndex, newIndex) {
+          final list = List<RoadmapStepModel>.from(steps);
+          if (newIndex > oldIndex) newIndex--;
+          final item = list.removeAt(oldIndex);
+          list.insert(newIndex, item);
+          ref.read(roadmapNotifierProvider.notifier).reorderSteps(list);
+        },
+        itemBuilder: (ctx, i) {
+          final step = steps[i];
+          return _TimelineStepNode(
+            key: ValueKey(step.oid),
+            step: step,
+            weddingDate: widget.weddingDate,
+            isFirst: i == 0,
+            isLast: i == steps.length - 1,
+            onUpdateStatus: () =>
+                widget.onUpdateStatus(step.oid, step.nextStatus),
+            onTap: () => widget.onTap(step),
+            showDragHandle: true,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: const Color(0xFF60A5FA).withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: const Color(0xFF60A5FA).withOpacity(0.3), width: 1.5),
+            ),
+            child: const Icon(Icons.edit_note,
+                size: 32, color: Color(0xFF60A5FA)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '"${widget.roadmap.name}" 로드맵이 비어있습니다.',
+            style: const TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '아래 + 버튼을 눌러 항목을 추가하세요.',
+            style: TextStyle(fontSize: 13, color: Color(0xAAFFFFFF)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "+" 탭 안내 화면
+// ---------------------------------------------------------------------------
+
+class _AddRoadmapTab extends StatelessWidget {
+  const _AddRoadmapTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: const Color(0xFF60A5FA).withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: const Color(0xFF60A5FA).withOpacity(0.3), width: 1.5),
+            ),
+            child: const Icon(Icons.add, size: 32, color: Color(0xFF60A5FA)),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '직접 로드맵 추가',
+            style: TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '아래 + 버튼을 눌러 새 로드맵을 만드세요.',
+            style: TextStyle(fontSize: 13, color: Color(0xAAFFFFFF)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 타임라인 노드 — 수직 라인 + 마커 + 카드
+// ---------------------------------------------------------------------------
+
+class _TimelineStepNode extends StatelessWidget {
   final RoadmapStepModel step;
   final DateTime? weddingDate;
-  final VoidCallback onToggle;
+  final bool isFirst;
+  final bool isLast;
+  final VoidCallback onUpdateStatus;
   final VoidCallback onTap;
+  final bool showDragHandle;
 
-  const _RoadmapStepCard({
+  const _TimelineStepNode({
+    super.key,
     required this.step,
     this.weddingDate,
-    required this.onToggle,
+    required this.isFirst,
+    required this.isLast,
+    required this.onUpdateStatus,
+    required this.onTap,
+    this.showDragHandle = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = step.effectiveColor;
+    final dDayText =
+        weddingDate != null ? step.dDayText(weddingDate!) : '';
+    final isOverdue = step.status == 'NOT_STARTED' && dDayText.contains('지남');
+
+    // status 기반 3색 노드
+    final Color nodeColor = switch (step.status) {
+      'DONE' => _kDone,
+      'IN_PROGRESS' => const Color(0xFFF59E0B),
+      _ => isOverdue ? _kUrgent : color.withOpacity(0.6),
+    };
+    final bool nodeFilled =
+        step.status != 'NOT_STARTED' || isOverdue;
+
+    // 연결선 색상
+    final lineColor = step.status == 'DONE'
+        ? _kDone.withOpacity(0.4)
+        : _kGlassBorder.withOpacity(0.4);
+
+    // 카드 테두리 색상 — 흰색 유리 스타일로 통일
+    const Color cardBorderColor = _kGlassBorder;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── 드래그 핸들 (순서 변경 모드) ──
+            // ReorderableListView.builder가 자동으로 drag 핸들을 제공하므로
+            // 시각적 힌트만 표시한다.
+            if (showDragHandle)
+              const Padding(
+                padding: EdgeInsets.only(right: 4, top: 4),
+                child: Icon(Icons.drag_handle, size: 18, color: _kTextMute),
+              ),
+            // ── 왼쪽: 라인 + 노드 ──
+            SizedBox(
+              width: 44,
+              child: Column(
+                children: [
+                  // 위쪽 연결선
+                  if (!isFirst)
+                    Expanded(
+                      flex: 1,
+                      child: Center(
+                        child: Container(width: 2, color: lineColor),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 12),
+                  // 노드 원 — AnimatedSwitcher로 상태 전환 애니메이션
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    transitionBuilder: (child, animation) =>
+                        ScaleTransition(scale: animation, child: child),
+                    child: Container(
+                      key: ValueKey(step.status),
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: nodeFilled
+                            ? nodeColor.withOpacity(0.15)
+                            : Colors.transparent,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: nodeColor,
+                          width: step.status == 'DONE' ? 2.0 : 1.5,
+                        ),
+                      ),
+                      child: Icon(step.statusIcon, size: 16, color: nodeColor),
+                    ),
+                  ),
+                  // 아래쪽 연결선
+                  if (!isLast)
+                    Expanded(
+                      flex: 3,
+                      child: Center(
+                        child: Container(width: 2, color: lineColor),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 12),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            // ── 오른쪽: 카드 내용 ──
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  top: isFirst ? 0 : 8,
+                  bottom: isLast ? 0 : 8,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  margin: const EdgeInsets.only(bottom: 4),
+                  decoration: BoxDecoration(
+                    color: _kGlass,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: cardBorderColor, width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 기간 텍스트를 먼저 (있을 때만)
+                            if (dDayText.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 3),
+                                child: Text(
+                                  dDayText,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isOverdue ? _kUrgent : const Color(0x88FFFFFF),
+                                  ),
+                                ),
+                              ),
+                            // 그 다음 제목
+                            Text(
+                              step.title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: step.status == 'DONE'
+                                    ? _kTextSub
+                                    : _kText,
+                                decoration: step.status == 'DONE'
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                                decorationColor: _kTextSub,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            // 상태 배지만 (D-Day는 위로 올라갔으므로 제거)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: nodeColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                step.statusLabel,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: nodeColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _StatusCycleButton(
+                        status: step.status,
+                        onTap: onUpdateStatus,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+}
+
+// ---------------------------------------------------------------------------
+// 기간 그룹 데이터 클래스
+// ---------------------------------------------------------------------------
+
+class _PeriodGroup {
+  final String label;
+  final DateTime? dueDate;
+  final List<RoadmapStepModel> steps;
+  const _PeriodGroup({required this.label, this.dueDate, required this.steps});
+}
+
+// ---------------------------------------------------------------------------
+// 기간 그룹 타임라인 타일 (홈화면 _TimelineTile 스타일)
+// ---------------------------------------------------------------------------
+
+class _PeriodGroupTile extends StatelessWidget {
+  final _PeriodGroup group;
+  final bool isLast;
+  final void Function(String oid, String newStatus) onUpdateStatus;
+  final void Function(RoadmapStepModel step) onTap;
+
+  const _PeriodGroupTile({
+    super.key,
+    required this.group,
+    required this.isLast,
+    required this.onUpdateStatus,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = RoadmapStepModel.stepColor(step.stepType);
-    final icon = RoadmapStepModel.stepIcon(step.stepType);
-    final dDayText = weddingDate != null
-        ? step.dDayText(weddingDate!)
-        : '';
+    final doneCnt = group.steps.where((s) => s.status == 'DONE').length;
+    final allDone = doneCnt == group.steps.length;
+    final anyInProgress = group.steps.any((s) => s.status == 'IN_PROGRESS');
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _kGlass,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: step.isDone
-                ? _kDone.withOpacity(0.3)
-                : _kGlassBorder,
-            width: 1.5,
+    // 그룹 상태 색상 (중립 기반)
+    final Color dotColor = allDone
+        ? _kDone
+        : anyInProgress
+            ? const Color(0xFFF59E0B)
+            : const Color(0x88FFFFFF);
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── 왼쪽: 점 + 세로선 ──
+          SizedBox(
+            width: 40,
+            child: Column(
+              children: [
+                const SizedBox(height: 2),
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: dotColor.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: dotColor, width: 1.5),
+                  ),
+                  child: Icon(
+                    allDone
+                        ? Icons.check_circle
+                        : anyInProgress
+                            ? Icons.timelapse
+                            : Icons.radio_button_unchecked,
+                    size: 12,
+                    color: dotColor,
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Center(
+                      child: Container(
+                        width: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [dotColor.withOpacity(0.4), const Color(0x14FFFFFF)],
+                          ),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(width: 10),
+          // ── 오른쪽: 유리 카드 ──
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0x1AFFFFFF),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0x28FFFFFF), width: 1),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 기간 헤더
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: dotColor.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  group.label,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: dotColor,
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                '$doneCnt/${group.steps.length}',
+                                style: const TextStyle(fontSize: 10, color: _kTextMute),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1, color: Color(0x18FFFFFF)),
+                        // 단계 행 목록
+                        ...group.steps.asMap().entries.map((e) {
+                          final step = e.value;
+                          final isLastStep = e.key == group.steps.length - 1;
+                          return Column(
+                            children: [
+                              _buildStepRow(step),
+                              if (!isLastStep)
+                                const Divider(
+                                    height: 1,
+                                    color: Color(0x0CFFFFFF),
+                                    indent: 12,
+                                    endIndent: 12),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepRow(RoadmapStepModel step) {
+    final stepColor = step.effectiveColor;
+    final nodeColor = switch (step.status) {
+      'DONE' => _kDone,
+      'IN_PROGRESS' => const Color(0xFFF59E0B),
+      _ => stepColor,
+    };
+    return InkWell(
+      onTap: () => onTap(step),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         child: Row(
           children: [
-            // 아이콘 원형 배경
             Container(
-              width: 44,
-              height: 44,
+              width: 28,
+              height: 28,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: nodeColor.withOpacity(0.12),
                 shape: BoxShape.circle,
-                border: Border.all(
-                    color: color.withOpacity(0.3), width: 1.5),
+                border: Border.all(color: nodeColor.withOpacity(0.3), width: 1),
               ),
-              child: Icon(icon, color: color, size: 20),
+              child: Icon(RoadmapStepModel.stepIcon(step.stepType), size: 13, color: nodeColor),
             ),
-            const SizedBox(width: 12),
-            // 제목 & 상태
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,60 +1557,161 @@ class _RoadmapStepCard extends StatelessWidget {
                   Text(
                     step.title,
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: step.isDone
-                          ? _kTextSub
-                          : _kText,
-                      decoration: step.isDone
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: step.status == 'DONE' ? _kTextSub : _kText,
+                      decoration: step.status == 'DONE' ? TextDecoration.lineThrough : null,
+                      decorationColor: _kTextSub,
                     ),
                   ),
-                  if (dDayText.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      dDayText,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: dDayText.contains('지남')
-                            ? _kUrgent
-                            : _kTextMute,
-                      ),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: nodeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                  ],
+                    child: Text(
+                      step.statusLabel,
+                      style: TextStyle(fontSize: 9, color: nodeColor, fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            // 완료/미완료 토글 버튼
-            GestureDetector(
-              onTap: onToggle,
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: step.isDone
-                      ? _kDone.withOpacity(0.15)
-                      : const Color(0x0FFFFFFF),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: step.isDone
-                        ? _kDone
-                        : const Color(0x33FFFFFF),
-                    width: 1.5,
-                  ),
-                ),
-                child: Icon(
-                  step.isDone ? Icons.check : Icons.circle_outlined,
-                  size: 16,
-                  color: step.isDone ? _kDone : _kTextMute,
-                ),
-              ),
+            _StatusCycleButton(
+              status: step.status,
+              onTap: () => onUpdateStatus(step.oid, step.nextStatus),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 3상태 순환 버튼 — 모던 pill 스타일
+// ---------------------------------------------------------------------------
+
+class _StatusCycleButton extends StatelessWidget {
+  final String status;
+  final VoidCallback onTap;
+
+  const _StatusCycleButton({required this.status, required this.onTap});
+
+  static Color _bg(String s) => switch (s) {
+        'DONE' => const Color(0x2810B981),
+        'IN_PROGRESS' => const Color(0x28F59E0B),
+        _ => const Color(0x10FFFFFF),
+      };
+
+  static Color _border(String s) => switch (s) {
+        'DONE' => const Color(0x6010B981),
+        'IN_PROGRESS' => const Color(0x60F59E0B),
+        _ => const Color(0x28FFFFFF),
+      };
+
+  static Color _fg(String s) => switch (s) {
+        'DONE' => const Color(0xFF10B981),
+        'IN_PROGRESS' => const Color(0xFFF59E0B),
+        _ => const Color(0x55FFFFFF),
+      };
+
+  static List<BoxShadow>? _glow(String s) => switch (s) {
+        'DONE' => [
+            const BoxShadow(
+                color: Color(0x2810B981), blurRadius: 8, spreadRadius: 0)
+          ],
+        'IN_PROGRESS' => [
+            const BoxShadow(
+                color: Color(0x28F59E0B), blurRadius: 8, spreadRadius: 0)
+          ],
+        _ => null,
+      };
+
+  static IconData _icon(String s) => switch (s) {
+        'DONE' => Icons.check_rounded,
+        'IN_PROGRESS' => Icons.timelapse_rounded,
+        _ => Icons.radio_button_unchecked,
+      };
+
+  static String _label(String s) => switch (s) {
+        'DONE' => '완료',
+        'IN_PROGRESS' => '진행중',
+        _ => '시작',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        transitionBuilder: (child, anim) => FadeTransition(
+          opacity: anim,
+          child: ScaleTransition(scale: Tween(begin: 0.85, end: 1.0).animate(anim), child: child),
+        ),
+        child: AnimatedContainer(
+          key: ValueKey(status),
+          duration: const Duration(milliseconds: 220),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          decoration: BoxDecoration(
+            color: _bg(status),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _border(status), width: 1),
+            boxShadow: _glow(status),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_icon(status), size: 10, color: _fg(status)),
+              const SizedBox(width: 4),
+              Text(
+                _label(status),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: _fg(status),
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 상태 배지 (진행률 헤더용)
+// ---------------------------------------------------------------------------
+
+class _StatusBadge extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+
+  const _StatusBadge(this.label, this.count, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '$label $count',
+          style: TextStyle(fontSize: 10, color: color),
+        ),
+      ],
     );
   }
 }
@@ -442,11 +1724,15 @@ class _StepDetailBottomSheet extends StatefulWidget {
   final RoadmapStepModel step;
   final BuildContext scaffoldContext;
   final RoadmapNotifier notifier;
+  final VoidCallback? onSaved;
+  final VoidCallback? onDeleted;
 
   const _StepDetailBottomSheet({
     required this.step,
     required this.scaffoldContext,
     required this.notifier,
+    this.onSaved,
+    this.onDeleted,
   });
 
   @override
@@ -771,30 +2057,22 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
     final color = RoadmapStepModel.stepColor(widget.step.stepType);
     final icon = RoadmapStepModel.stepIcon(widget.step.stepType);
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.82,
       ),
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 핸들
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0x44FFFFFF),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // 헤더
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+            // 헤더 (닫기 버튼 포함, 핸들바 제거)
             Row(
               children: [
                 Container(
@@ -818,6 +2096,10 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
                       color: Colors.white,
                     ),
                   ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const Icon(Icons.close, color: Colors.white54, size: 20),
                 ),
               ],
             ),
@@ -888,6 +2170,16 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
             // stepType별 특화 UI
             _buildStepSpecificForm(),
 
+            const SizedBox(height: 20),
+            const Divider(color: Color(0x22FFFFFF), height: 1),
+            const SizedBox(height: 16),
+
+            // 첨부파일 섹션
+            AttachmentSectionWidget(
+              refType: 'ROADMAP_STEP',
+              refOid: widget.step.oid,
+            ),
+
             const SizedBox(height: 24),
 
             // 저장 / 삭제 버튼
@@ -944,6 +2236,7 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -2386,9 +3679,11 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
     setState(() => _isSaving = true);
     try {
       final details = _buildDetails();
-      final newTitle = widget.step.stepType == 'ETC'
-          ? _titleCtrl.text.trim()
-          : null;
+      // ETC 타입이거나 직접 로드맵 단계(groupOid != null)이면 제목 수정 허용
+      final newTitle =
+          (widget.step.stepType == 'ETC' || widget.step.groupOid != null)
+              ? _titleCtrl.text.trim()
+              : null;
 
       final ok = await widget.notifier.updateStep(
         widget.step.oid,
@@ -2399,9 +3694,10 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
         clearDueDate: !_hasDueDate,
       );
 
-      // isDone 토글 (변경된 경우에만, mounted 확인 후 수행)
+      // isDone 변경된 경우 status도 함께 업데이트
       if (ok && _isDone != widget.step.isDone && mounted) {
-        await widget.notifier.toggleDone(widget.step.oid);
+        final newStatus = _isDone ? 'DONE' : 'NOT_STARTED';
+        await widget.notifier.updateStatus(widget.step.oid, newStatus);
       }
 
       if (mounted) {
@@ -2414,6 +3710,7 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
             ),
           );
           navigator.pop();
+          widget.onSaved?.call();
         }
       }
     } finally {
@@ -2471,6 +3768,7 @@ class _StepDetailBottomSheetState extends State<_StepDetailBottomSheet> {
             ),
           );
           navigator.pop();
+          widget.onDeleted?.call();
         }
       }
     } finally {
@@ -2487,11 +3785,17 @@ class _AddStepBottomSheet extends StatefulWidget {
   final BuildContext scaffoldContext;
   final RoadmapNotifier notifier;
   final List<String> existingStepTypes;
+  final bool hideEtc;
+  final String? groupOid;
+  final VoidCallback? onSuccess;
 
   const _AddStepBottomSheet({
     required this.scaffoldContext,
     required this.notifier,
     required this.existingStepTypes,
+    this.hideEtc = false,
+    this.groupOid,
+    this.onSuccess,
   });
 
   @override
@@ -2504,6 +3808,23 @@ class _AddStepBottomSheetState extends State<_AddStepBottomSheet> {
   bool _hasDueDate = false;
   DateTime? _dueDate;
   bool _isSaving = false;
+
+  Color _customColor = const Color(0xFFEC4899);
+
+  static const _colorPalette = [
+    Color(0xFFEC4899), // pink
+    Color(0xFFF472B6), // light pink
+    Color(0xFF8B5CF6), // purple
+    Color(0xFF60A5FA), // blue
+    Color(0xFF34D399), // emerald
+    Color(0xFFF59E0B), // amber
+    Color(0xFFEF4444), // red
+    Color(0xFF22D3EE), // cyan
+    Color(0xFFF97316), // orange
+    Color(0xFFA78BFA), // violet
+    Color(0xFF4ADE80), // lime
+    Color(0xFFFBBF24), // yellow
+  ];
 
   static const _stepInfos = [
     ('BUDGET', '결혼 예산', Icons.account_balance_wallet),
@@ -2530,30 +3851,17 @@ class _AddStepBottomSheetState extends State<_AddStepBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(20),
       ),
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0x44FFFFFF),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
             const Text(
               '단계 추가',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
@@ -2568,7 +3876,9 @@ class _AddStepBottomSheetState extends State<_AddStepBottomSheet> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _stepInfos.map((info) {
+              children: _stepInfos
+                .where((info) => !(widget.hideEtc && info.$1 == 'ETC'))
+                .map((info) {
                 final (type, label, icon) = info;
                 final alreadyExists = _isAlreadyExist(type);
                 final isSelected = _selectedStepType == type;
@@ -2630,7 +3940,7 @@ class _AddStepBottomSheetState extends State<_AddStepBottomSheet> {
               }).toList(),
             ),
 
-            // ETC 선택 시 제목 직접 입력
+            // ETC 선택 시 제목 직접 입력 + 색상 선택
             if (_selectedStepType == 'ETC') ...[
               const SizedBox(height: 16),
               const Text(
@@ -2660,6 +3970,37 @@ class _AddStepBottomSheetState extends State<_AddStepBottomSheet> {
                     borderSide: const BorderSide(color: _kPink, width: 1.5),
                   ),
                 ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                '색상 선택',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xAAFFFFFF)),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _colorPalette.map((c) => GestureDetector(
+                  onTap: () => setState(() => _customColor = c),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: c,
+                      shape: BoxShape.circle,
+                      border: _customColor == c
+                          ? Border.all(color: Colors.white, width: 2.5)
+                          : Border.all(color: Colors.transparent, width: 2.5),
+                      boxShadow: _customColor == c
+                          ? [BoxShadow(color: c.withOpacity(0.5), blurRadius: 8, spreadRadius: 1)]
+                          : null,
+                    ),
+                    child: _customColor == c
+                        ? const Icon(Icons.check, size: 14, color: Colors.white)
+                        : null,
+                  ),
+                )).toList(),
               ),
             ],
 
@@ -2782,6 +4123,8 @@ class _AddStepBottomSheetState extends State<_AddStepBottomSheet> {
       title: title,
       dueDate: _hasDueDate ? _dueDate : null,
       hasDueDate: _hasDueDate,
+      groupOid: widget.groupOid,
+      initialDetails: stepType == 'ETC' ? {'customColor': _customColor.value} : null,
     );
 
     if (mounted) {
@@ -2794,6 +4137,7 @@ class _AddStepBottomSheetState extends State<_AddStepBottomSheet> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+        widget.onSuccess?.call();
       } else {
         setState(() => _isSaving = false);
       }

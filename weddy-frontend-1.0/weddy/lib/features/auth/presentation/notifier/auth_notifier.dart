@@ -11,6 +11,8 @@ import 'package:weddy/features/auth/data/repository/auth_repository_impl.dart';
 import 'package:weddy/features/auth/domain/model/auth_state.dart';
 import 'package:weddy/features/auth/domain/repository/auth_repository.dart';
 import 'package:weddy/features/couple/presentation/notifier/couple_notifier.dart';
+import 'package:weddy/features/roadmap/presentation/notifier/custom_roadmap_notifier.dart';
+import 'package:weddy/features/vendor/presentation/notifier/vendor_notifier.dart';
 
 // ---------------------------------------------------------------------------
 // Providers
@@ -224,6 +226,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } finally {
       // 커플 상태를 초기화하여 다음 사용자 로그인 시 stale 데이터가 노출되지 않도록 한다.
       _ref.read(coupleNotifierProvider.notifier).reset();
+      // 직접 로드맵 상태를 초기화하여 다음 사용자 로그인 시 이전 사용자의 데이터가 노출되지 않도록 한다.
+      _ref.read(customRoadmapNotifierProvider.notifier).reset();
+      // 업체/즐겨찾기 상태를 초기화하여 다음 사용자 로그인 시 이전 사용자의 즐겨찾기가 노출되지 않도록 한다.
+      _ref.read(vendorNotifierProvider.notifier).reset();
       state = const AuthUnauthenticated();
     }
   }

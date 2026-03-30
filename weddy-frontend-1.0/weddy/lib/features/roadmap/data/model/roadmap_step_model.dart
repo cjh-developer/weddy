@@ -9,22 +9,26 @@ class RoadmapStepModel {
   final String stepType;
   final String title;
   final bool isDone;
+  final String status; // 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE'
   final DateTime? dueDate;
   final bool hasDueDate;
   final int sortOrder;
   final Map<String, dynamic> details;
   final DateTime createdAt;
+  final String? groupOid;
 
   const RoadmapStepModel({
     required this.oid,
     required this.stepType,
     required this.title,
     required this.isDone,
+    required this.status,
     this.dueDate,
     required this.hasDueDate,
     required this.sortOrder,
     required this.details,
     required this.createdAt,
+    this.groupOid,
   });
 
   factory RoadmapStepModel.fromJson(Map<String, dynamic> json) {
@@ -41,12 +45,14 @@ class RoadmapStepModel {
       }
     }
 
+    final rawStatus = json['status'] as String? ?? 'NOT_STARTED';
     return RoadmapStepModel(
       oid: json['oid'] as String,
       stepType: json['stepType'] as String,
       title: json['title'] as String? ??
           defaultTitle(json['stepType'] as String),
-      isDone: json['isDone'] as bool? ?? false,
+      isDone: json['isDone'] as bool? ?? rawStatus == 'DONE',
+      status: rawStatus,
       dueDate: json['dueDate'] != null
           ? DateTime.tryParse(json['dueDate'] as String)
           : null,
@@ -54,6 +60,7 @@ class RoadmapStepModel {
       sortOrder: json['sortOrder'] as int? ?? 0,
       details: parsedDetails,
       createdAt: DateTime.parse(json['createdAt'] as String),
+      groupOid: json['groupOid'] as String?,
     );
   }
 
@@ -63,11 +70,13 @@ class RoadmapStepModel {
       'stepType': stepType,
       'title': title,
       'isDone': isDone,
+      'status': status,
       if (dueDate != null) 'dueDate': _fmtDate(dueDate!),
       'hasDueDate': hasDueDate,
       'sortOrder': sortOrder,
       'details': details,
       'createdAt': createdAt.toIso8601String(),
+      if (groupOid != null) 'groupOid': groupOid,
     };
   }
 
@@ -76,23 +85,28 @@ class RoadmapStepModel {
     String? stepType,
     String? title,
     bool? isDone,
+    String? status,
     DateTime? dueDate,
     bool clearDueDate = false,
     bool? hasDueDate,
     int? sortOrder,
     Map<String, dynamic>? details,
     DateTime? createdAt,
+    String? groupOid,
+    bool clearGroupOid = false,
   }) {
     return RoadmapStepModel(
       oid: oid ?? this.oid,
       stepType: stepType ?? this.stepType,
       title: title ?? this.title,
       isDone: isDone ?? this.isDone,
+      status: status ?? this.status,
       dueDate: clearDueDate ? null : (dueDate ?? this.dueDate),
       hasDueDate: hasDueDate ?? this.hasDueDate,
       sortOrder: sortOrder ?? this.sortOrder,
       details: details ?? this.details,
       createdAt: createdAt ?? this.createdAt,
+      groupOid: clearGroupOid ? null : (groupOid ?? this.groupOid),
     );
   }
 
@@ -100,6 +114,61 @@ class RoadmapStepModel {
       '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
+
+  /// details['customColor']가 있으면 그 값을 사용, 없으면 stepType 기본 색상.
+  Color get effectiveColor {
+    final v = details['customColor'];
+    if (v is int) return Color(v);
+    return stepColor(stepType);
+  }
+
+  /// 상태별 UI 색상 (3단계)
+  Color get statusColor {
+    switch (status) {
+      case 'DONE':
+        return const Color(0xFF10B981);
+      case 'IN_PROGRESS':
+        return const Color(0xFFF59E0B);
+      default:
+        return const Color(0x66FFFFFF);
+    }
+  }
+
+  /// 상태별 아이콘
+  IconData get statusIcon {
+    switch (status) {
+      case 'DONE':
+        return Icons.check_circle;
+      case 'IN_PROGRESS':
+        return Icons.timelapse;
+      default:
+        return Icons.radio_button_unchecked;
+    }
+  }
+
+  /// 상태 레이블
+  String get statusLabel {
+    switch (status) {
+      case 'DONE':
+        return '완료';
+      case 'IN_PROGRESS':
+        return '진행중';
+      default:
+        return '미진행';
+    }
+  }
+
+  /// 다음 순환 상태 (탭할 때마다 순환)
+  String get nextStatus {
+    switch (status) {
+      case 'NOT_STARTED':
+        return 'IN_PROGRESS';
+      case 'IN_PROGRESS':
+        return 'DONE';
+      default:
+        return 'NOT_STARTED';
+    }
+  }
 
   /// 예식일 기준 D-Day 텍스트를 반환한다.
   String dDayText(DateTime weddingDate) {

@@ -33,4 +33,12 @@ public class CreateRoadmapStepRequest {
     /** 단계별 특화 데이터 (JSON 문자열). 클라이언트가 직렬화하여 전달한다. */
     @Size(max = 2000, message = "단계 상세 정보는 2000자 이하여야 합니다.")
     private String details;
+
+    /**
+     * 소속 직접 로드맵 OID (선택).
+     * null이면 기본 로드맵에 단계가 생성된다.
+     * 값이 있으면 해당 직접 로드맵에 단계가 생성되며, 소유권 검증을 수행한다.
+     */
+    @Size(max = 14, message = "그룹 OID는 14자 이하여야 합니다.")
+    private String groupOid;
 }

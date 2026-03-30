@@ -10,8 +10,10 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS weddy_attachments;
 DROP TABLE IF EXISTS weddy_roadmap_travel_stops;
 DROP TABLE IF EXISTS weddy_roadmap_hall_tours;
+DROP TABLE IF EXISTS weddy_custom_roadmaps;
 DROP TABLE IF EXISTS weddy_roadmap_steps;
 DROP TABLE IF EXISTS weddy_schedules;
 DROP TABLE IF EXISTS weddy_favorites;
@@ -199,18 +201,36 @@ CREATE TABLE weddy_roadmap_steps (
     oid          VARCHAR(14)   NOT NULL,
     owner_oid    VARCHAR(14)   NOT NULL COMMENT '솔로=userOid, 커플=coupleOid',
     step_type    VARCHAR(30)   NOT NULL COMMENT 'BUDGET|HALL|PLANNER|DRESS|HOME|TRAVEL|GIFT|SANGGYEONRYE|ETC',
+    group_oid    VARCHAR(14)   NULL     COMMENT '직접 로드맵 OID (NULL=기본 로드맵)',
     title        VARCHAR(100)  NOT NULL COMMENT '기타 단계의 경우 직접 입력',
     is_done      TINYINT(1)    NOT NULL DEFAULT 0,
+    status       VARCHAR(15)   NOT NULL DEFAULT 'NOT_STARTED' COMMENT 'NOT_STARTED|IN_PROGRESS|DONE',
     due_date     DATE          NULL,
     has_due_date TINYINT(1)    NOT NULL DEFAULT 0,
     sort_order   INT           NOT NULL DEFAULT 0,
-    details      TEXT          NULL COMMENT 'JSON 형태의 단계별 특화 데이터',
+    details      MEDIUMTEXT    NULL COMMENT 'JSON 형태의 단계별 특화 데이터',
     created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (oid),
-    INDEX idx_roadmap_owner (owner_oid),
-    INDEX idx_roadmap_type  (step_type)
+    INDEX idx_roadmap_owner  (owner_oid),
+    INDEX idx_roadmap_type   (step_type),
+    INDEX idx_roadmap_status (owner_oid, status),
+    INDEX idx_roadmap_group  (group_oid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='웨딩 로드맵 단계';
+
+-- ============================================================
+-- 직접 로드맵 (사용자 정의 로드맵 컨테이너)
+-- ============================================================
+CREATE TABLE weddy_custom_roadmaps (
+    oid        VARCHAR(14)  NOT NULL,
+    owner_oid  VARCHAR(14)  NOT NULL COMMENT '솔로=userOid, 커플=coupleOid',
+    name       VARCHAR(100) NOT NULL COMMENT '사용자 지정 로드맵 이름',
+    sort_order INT          NOT NULL DEFAULT 0,
+    created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (oid),
+    INDEX idx_custom_roadmap_owner (owner_oid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='직접 로드맵';
 
 -- ============================================================
 -- 웨딩홀 투어 (1:N)
@@ -255,3 +275,21 @@ CREATE TABLE weddy_favorites (
     INDEX idx_owner  (owner_oid),
     INDEX idx_vendor (vendor_oid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='업체 즐겨찾기';
+
+-- ============================================================
+-- 첨부파일 (Vault)
+-- ============================================================
+CREATE TABLE weddy_attachments (
+    oid           VARCHAR(14)   NOT NULL,
+    owner_oid     VARCHAR(14)   NOT NULL,
+    ref_type      VARCHAR(20)   NOT NULL COMMENT 'ROADMAP_STEP | BUDGET',
+    ref_oid       VARCHAR(14)   NOT NULL,
+    original_name VARCHAR(255)  NOT NULL,
+    stored_name   VARCHAR(40)   NOT NULL COMMENT 'UUID+확장자',
+    file_size     BIGINT        NOT NULL,
+    mime_type     VARCHAR(100)  NOT NULL,
+    created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (oid),
+    INDEX idx_att_owner (owner_oid),
+    INDEX idx_att_ref   (ref_type, ref_oid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='첨부파일';

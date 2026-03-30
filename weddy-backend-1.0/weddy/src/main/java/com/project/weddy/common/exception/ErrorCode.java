@@ -16,6 +16,7 @@ public enum ErrorCode {
     UNAUTHORIZED("AUTH_001", "인증이 필요합니다.", HttpStatus.UNAUTHORIZED),
     INVALID_TOKEN("AUTH_002", "유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
     EXPIRED_TOKEN("AUTH_003", "만료된 토큰입니다.", HttpStatus.UNAUTHORIZED),
+    FORBIDDEN("AUTH_004", "접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
     // 사용자
     USER_NOT_FOUND("USER_001", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -52,6 +53,18 @@ public enum ErrorCode {
     ROADMAP_HALL_TOUR_NOT_FOUND("ROADMAP_002", "투어 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     ROADMAP_STEP_LIMIT_EXCEEDED("ROADMAP_003", "웨딩 관리 단계는 최대 20개까지 생성할 수 있습니다.", HttpStatus.BAD_REQUEST),
     ROADMAP_TRAVEL_STOP_NOT_FOUND("ROADMAP_004", "경유지 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    ROADMAP_ALREADY_INITIALIZED("ROADMAP_005", "기본 로드맵이 이미 생성되어 있습니다.", HttpStatus.CONFLICT),
+    ROADMAP_INVALID_STATUS("ROADMAP_006", "유효하지 않은 상태값입니다.", HttpStatus.BAD_REQUEST),
+    ROADMAP_REORDER_INVALID("ROADMAP_007", "순서 변경 요청이 유효하지 않습니다.", HttpStatus.BAD_REQUEST),
+    CUSTOM_ROADMAP_NOT_FOUND("ROADMAP_008", "직접 로드맵을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    CUSTOM_ROADMAP_LIMIT_EXCEEDED("ROADMAP_009", "직접 로드맵은 최대 10개까지 생성할 수 있습니다.", HttpStatus.BAD_REQUEST),
+
+    // 첨부파일
+    ATTACHMENT_NOT_FOUND("ATTACHMENT_001", "첨부파일을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    ATTACHMENT_LIMIT_EXCEEDED("ATTACHMENT_002", "첨부파일은 ref당 최대 20개까지 등록할 수 있습니다.", HttpStatus.BAD_REQUEST),
+    ATTACHMENT_INVALID_TYPE("ATTACHMENT_003", "허용되지 않는 파일 형식입니다. (JPG/PNG/WEBP/PDF만 허용)", HttpStatus.BAD_REQUEST),
+    ATTACHMENT_SIZE_EXCEEDED("ATTACHMENT_004", "파일 크기는 최대 20MB입니다.", HttpStatus.BAD_REQUEST),
+    ATTACHMENT_IO_ERROR("ATTACHMENT_005", "파일 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // 공통
     VALIDATION_FAILED("COMMON_001", "입력값 검증에 실패했습니다.", HttpStatus.BAD_REQUEST),

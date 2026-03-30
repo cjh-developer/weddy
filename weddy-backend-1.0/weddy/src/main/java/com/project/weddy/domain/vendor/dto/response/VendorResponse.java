@@ -1,5 +1,6 @@
 package com.project.weddy.domain.vendor.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.project.weddy.domain.vendor.entity.Vendor;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,6 +20,9 @@ public class VendorResponse {
     private String phone;
     private String description;
     private String homepageUrl;
+
+    /** @JsonProperty 명시: Lombok boolean isFavorite() → Jackson "favorite" 직렬화를 "favorited"로 고정 */
+    @JsonProperty("favorited")
     private boolean isFavorite;
 
     /**

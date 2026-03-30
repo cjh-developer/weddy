@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -188,11 +190,15 @@ class RoadmapNotifier extends StateNotifier<RoadmapState> {
   }
 
   /// 새 로드맵 단계를 생성한다.
+  /// [groupOid]가 지정되면 해당 직접 로드맵 컨테이너에 속하는 단계를 생성한다.
+  /// [initialDetails]가 지정되면 초기 details JSON으로 저장된다.
   Future<bool> createStep({
     required String stepType,
     required String title,
     DateTime? dueDate,
     bool hasDueDate = false,
+    String? groupOid,
+    Map<String, dynamic>? initialDetails,
   }) async {
     try {
       String fmtDate(DateTime d) =>
@@ -205,7 +211,10 @@ class RoadmapNotifier extends StateNotifier<RoadmapState> {
         'title': title,
         'hasDueDate': hasDueDate,
         if (hasDueDate && dueDate != null) 'dueDate': fmtDate(dueDate),
-        'details': '{}',
+        'details': (initialDetails != null && initialDetails.isNotEmpty)
+            ? jsonEncode(initialDetails)
+            : '{}',
+        if (groupOid != null) 'groupOid': groupOid,
       };
 
       await _dio.post('/roadmap', data: body);
@@ -264,6 +273,97 @@ class RoadmapNotifier extends StateNotifier<RoadmapState> {
           .toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  /// 단계 상태를 낙관적으로 변경한다 (NOT_STARTED → IN_PROGRESS → DONE 순환).
+  Future<void> updateStatus(String oid, String newStatus) async {
+    final current = state;
+    if (current is! RoadmapLoaded) return;
+
+    // 낙관적 업데이트
+    final optimistic = current.steps.map((s) {
+      if (s.oid != oid) return s;
+      return s.copyWith(status: newStatus, isDone: newStatus == 'DONE');
+    }).toList();
+    state = RoadmapLoaded(optimistic);
+
+    try {
+      await _dio.patch('/roadmap/$oid/status', data: {'status': newStatus});
+      if (!mounted) return;
+      await loadSteps();
+    } on DioException catch (e) {
+      if (!mounted) return;
+      state = current;
+      final errorMsg = e.error is ApiException
+          ? (e.error as ApiException).message
+          : ApiException.fromDioException(e).message;
+      state = RoadmapError(errorMsg);
+    } catch (_) {
+      if (!mounted) return;
+      state = current;
+      state = const RoadmapError('상태 변경 중 오류가 발생했습니다.');
+    }
+  }
+
+  /// 기본 로드맵 8단계를 일괄 생성한다.
+  Future<bool> initDefaultRoadmap() async {
+    state = const RoadmapLoading();
+    try {
+      final res = await _dio.post('/roadmap/init-default');
+      if (!mounted) return false;
+      final apiResp = ApiResponse<List<dynamic>>.fromJson(
+        res.data as Map<String, dynamic>,
+        (d) => d as List<dynamic>,
+      );
+      if (apiResp.success && apiResp.data != null) {
+        // 생성 성공 후 loadSteps()로 서버 데이터를 다시 불러와 상태를 동기화한다.
+        await loadSteps();
+        return mounted;
+      }
+      state = RoadmapError(apiResp.message);
+      return false;
+    } on DioException catch (e) {
+      if (!mounted) return false;
+      final errorMsg = e.error is ApiException
+          ? (e.error as ApiException).message
+          : ApiException.fromDioException(e).message;
+      state = RoadmapError(errorMsg);
+      return false;
+    } catch (_) {
+      if (!mounted) return false;
+      state = const RoadmapError('기본 로드맵 생성 중 오류가 발생했습니다.');
+      return false;
+    }
+  }
+
+  /// 단계 순서를 일괄 변경한다 (낙관적 업데이트 후 서버 동기화).
+  Future<void> reorderSteps(List<RoadmapStepModel> reordered) async {
+    final current = state;
+    if (current is! RoadmapLoaded) return;
+
+    // 낙관적 업데이트
+    state = RoadmapLoaded(reordered);
+
+    try {
+      final orders = reordered.asMap().entries.map((e) => {
+            'oid': e.value.oid,
+            'sortOrder': e.key + 1,
+          }).toList();
+      await _dio.patch('/roadmap/reorder', data: {'orders': orders});
+      if (!mounted) return;
+      await loadSteps();
+    } on DioException catch (e) {
+      if (!mounted) return;
+      state = current;
+      final errorMsg = e.error is ApiException
+          ? (e.error as ApiException).message
+          : ApiException.fromDioException(e).message;
+      state = RoadmapError(errorMsg);
+    } catch (_) {
+      if (!mounted) return;
+      state = current;
+      state = const RoadmapError('순서 변경 중 오류가 발생했습니다.');
     }
   }
 
