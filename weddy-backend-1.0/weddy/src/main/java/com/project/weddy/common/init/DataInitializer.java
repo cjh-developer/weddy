@@ -58,6 +58,8 @@ public class DataInitializer implements CommandLineRunner {
         createFavorites();
         createRoadmapSteps();
         createSchedules();
+        createGuestGroups();
+        createGuests();
 
         log.info("[DataInitializer] 테스트 데이터 초기화 완료.");
     }
@@ -434,5 +436,76 @@ public class DataInitializer implements CommandLineRunner {
                 VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)
                 """, oid, "20000000000001", title, category, startAt, endAt,
                 location, sourceType, sourceOid);
+    }
+
+    // =========================================================
+    // 하객 그룹 (커플 소유)
+    // =========================================================
+
+    private void createGuestGroups() {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM weddy_guest_groups WHERE owner_oid = ?",
+                Integer.class, "20000000000001");
+        if (count != null && count > 0) {
+            log.debug("[DataInitializer] 하객 그룹 데이터 이미 존재, 건너뜀.");
+            return;
+        }
+
+        // 커플(20000000000001) 기본 그룹 5개 (is_default=1, 삭제 불가)
+        insertGuestGroup("90000000000001", "20000000000001", "고교", true,  0);
+        insertGuestGroup("90000000000002", "20000000000001", "대학", true,  1);
+        insertGuestGroup("90000000000003", "20000000000001", "직장", true,  2);
+        insertGuestGroup("90000000000004", "20000000000001", "가족", true,  3);
+        insertGuestGroup("90000000000005", "20000000000001", "기타", true,  4);
+
+        log.info("[DataInitializer] 하객 그룹 5개 생성 완료.");
+    }
+
+    private void insertGuestGroup(String oid, String ownerOid, String name,
+                                   boolean isDefault, int sortOrder) {
+        jdbc.update("""
+                INSERT INTO weddy_guest_groups (oid, owner_oid, name, is_default, sort_order)
+                VALUES (?, ?, ?, ?, ?)
+                """, oid, ownerOid, name, isDefault ? 1 : 0, sortOrder);
+    }
+
+    // =========================================================
+    // 하객 샘플 데이터
+    // =========================================================
+
+    private void createGuests() {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM weddy_guests WHERE owner_oid = ?",
+                Integer.class, "20000000000001");
+        if (count != null && count > 0) {
+            log.debug("[DataInitializer] 하객 데이터 이미 존재, 건너뜀.");
+            return;
+        }
+
+        // oid, ownerOid, groupOid, name, companionCount, giftAmount, invitationStatus, attendStatus, memo
+        insertGuest("91000000000001", "20000000000001", "90000000000001",
+                "김민준", 1, 100_000L, "PAPER",  "ATTEND",    null);
+        insertGuest("91000000000002", "20000000000001", "90000000000001",
+                "이서연", 0,  50_000L, "MOBILE", "UNDECIDED", null);
+        insertGuest("91000000000003", "20000000000001", "90000000000003",
+                "박준호", 1, 100_000L, "PAPER",  "ATTEND",    "팀장님");
+        insertGuest("91000000000004", "20000000000001", "90000000000003",
+                "정수아", 0,  50_000L, "NONE",   "ABSENT",    null);
+        insertGuest("91000000000005", "20000000000001", null,
+                "최지훈", 0,       0L, "NONE",   "UNDECIDED", null);
+
+        log.info("[DataInitializer] 하객 5명 생성 완료.");
+    }
+
+    private void insertGuest(String oid, String ownerOid, String groupOid,
+                              String name, int companionCount, long giftAmount,
+                              String invitationStatus, String attendStatus, String memo) {
+        jdbc.update("""
+                INSERT INTO weddy_guests
+                    (oid, owner_oid, group_oid, name, companion_count, gift_amount,
+                     invitation_status, attend_status, memo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, oid, ownerOid, groupOid, name, companionCount, giftAmount,
+                invitationStatus, attendStatus, memo);
     }
 }

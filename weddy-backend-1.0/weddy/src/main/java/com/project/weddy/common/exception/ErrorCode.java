@@ -59,6 +59,13 @@ public enum ErrorCode {
     CUSTOM_ROADMAP_NOT_FOUND("ROADMAP_008", "직접 로드맵을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     CUSTOM_ROADMAP_LIMIT_EXCEEDED("ROADMAP_009", "직접 로드맵은 최대 10개까지 생성할 수 있습니다.", HttpStatus.BAD_REQUEST),
 
+    // 하객 관리
+    GUEST_GROUP_NOT_FOUND("GUEST_001", "하객 그룹을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    GUEST_NOT_FOUND("GUEST_002", "하객 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    GUEST_GROUP_DEFAULT_DELETE("GUEST_003", "기본 그룹은 삭제할 수 없습니다.", HttpStatus.BAD_REQUEST),
+    GUEST_GROUP_LIMIT_EXCEEDED("GUEST_004", "하객 그룹은 최대 20개까지 생성할 수 있습니다.", HttpStatus.BAD_REQUEST),
+    GUEST_LIMIT_EXCEEDED("GUEST_005", "하객은 최대 500명까지 등록할 수 있습니다.", HttpStatus.BAD_REQUEST),
+
     // 첨부파일
     ATTACHMENT_NOT_FOUND("ATTACHMENT_001", "첨부파일을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     ATTACHMENT_LIMIT_EXCEEDED("ATTACHMENT_002", "첨부파일은 ref당 최대 20개까지 등록할 수 있습니다.", HttpStatus.BAD_REQUEST),

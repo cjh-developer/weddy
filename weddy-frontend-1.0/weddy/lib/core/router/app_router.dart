@@ -11,6 +11,8 @@ import 'package:weddy/features/checklist/presentation/screen/checklist_screen.da
 import 'package:weddy/features/home/presentation/screen/home_screen.dart';
 import 'package:weddy/features/roadmap/presentation/screen/roadmap_screen.dart';
 import 'package:weddy/features/schedule/presentation/screen/schedule_screen.dart';
+import 'package:weddy/features/guest/presentation/screen/guest_form_screen.dart';
+import 'package:weddy/features/guest/presentation/screen/guest_screen.dart';
 import 'package:weddy/features/vendor/presentation/screen/vendor_detail_screen.dart';
 import 'package:weddy/features/vendor/presentation/screen/vendor_screen.dart';
 import 'package:weddy/features/wedding_setup/presentation/screen/wedding_date_setup_screen.dart';
@@ -30,6 +32,8 @@ abstract final class AppRoutes {
   static const String roadmap = '/roadmap';
   static const String vendor = '/vendor';
   static const String vendorDetail = '/vendor/:oid';
+  static const String guest = '/guest';
+  static const String guestForm = '/guest/form';
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +129,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.vendorDetail,
         builder: (context, state) => VendorDetailScreen(
           vendorOid: state.pathParameters['oid']!,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.guest,
+        builder: (context, state) => const GuestScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.guestForm,
+        builder: (context, state) => GuestFormScreen(
+          guestOid: state.uri.queryParameters['oid'],
         ),
       ),
     ],

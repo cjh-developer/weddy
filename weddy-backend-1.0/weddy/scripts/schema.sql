@@ -10,6 +10,8 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS weddy_guests;
+DROP TABLE IF EXISTS weddy_guest_groups;
 DROP TABLE IF EXISTS weddy_attachments;
 DROP TABLE IF EXISTS weddy_roadmap_travel_stops;
 DROP TABLE IF EXISTS weddy_roadmap_hall_tours;
@@ -275,6 +277,42 @@ CREATE TABLE weddy_favorites (
     INDEX idx_owner  (owner_oid),
     INDEX idx_vendor (vendor_oid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='업체 즐겨찾기';
+
+-- ============================================================
+-- 하객 그룹
+-- ============================================================
+CREATE TABLE weddy_guest_groups (
+    oid        VARCHAR(14)  NOT NULL                   COMMENT 'SecureRandom 14자리 숫자 PK',
+    owner_oid  VARCHAR(14)  NOT NULL                   COMMENT '소유자 OID (솔로=userOid, 커플=coupleOid)',
+    name       VARCHAR(50)  NOT NULL                   COMMENT '그룹명',
+    is_default TINYINT(1)   NOT NULL DEFAULT 0         COMMENT '기본 그룹 여부 (삭제 불가)',
+    sort_order INT          NOT NULL DEFAULT 0         COMMENT '정렬 순서',
+    created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (oid),
+    INDEX idx_guest_groups_owner (owner_oid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='하객 그룹';
+
+-- ============================================================
+-- 하객
+-- ============================================================
+CREATE TABLE weddy_guests (
+    oid               VARCHAR(14)  NOT NULL             COMMENT 'SecureRandom 14자리 숫자 PK',
+    owner_oid         VARCHAR(14)  NOT NULL             COMMENT '소유자 OID (솔로=userOid, 커플=coupleOid)',
+    group_oid         VARCHAR(14)  NULL                 COMMENT '하객 그룹 OID (NULL=그룹 미분류)',
+    name              VARCHAR(50)  NOT NULL             COMMENT '하객 이름',
+    companion_count   INT          NOT NULL DEFAULT 0   COMMENT '동반 인원 수',
+    gift_amount       BIGINT       NOT NULL DEFAULT 0   COMMENT '축의금 (원)',
+    invitation_status VARCHAR(10)  NOT NULL DEFAULT 'NONE'      COMMENT 'PAPER|MOBILE|NONE',
+    attend_status     VARCHAR(15)  NOT NULL DEFAULT 'UNDECIDED' COMMENT 'ATTEND|ABSENT|UNDECIDED',
+    memo              VARCHAR(500) NULL                 COMMENT '메모',
+    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (oid),
+    INDEX idx_guests_owner      (owner_oid),
+    INDEX idx_guests_group      (group_oid),
+    INDEX idx_guests_attend     (owner_oid, attend_status),
+    INDEX idx_guests_invitation (owner_oid, invitation_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='하객';
 
 -- ============================================================
 -- 첨부파일 (Vault)

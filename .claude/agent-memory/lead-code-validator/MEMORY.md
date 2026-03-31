@@ -199,6 +199,15 @@
 - RoadmapStep.update()에 clearDueDate 파라미터 추가됨 (null 명시 지우기 지원)
 - ROADMAP_TRAVEL_STOP_NOT_FOUND(ROADMAP_004) ErrorCode 추가됨
 
+### [PATTERN] 하객 관리 도메인 패턴 (10단계)
+- 상세 내용: patterns-guest.md 참조
+- GuestService.deleteGroup(): clearGroupOid() 먼저 → 그룹 삭제 순서
+- getSummary(): companion_count + 1 기준 집계 (본인 포함)
+- /summary 정적 경로 /{guestOid} 가변 경로보다 먼저 선언 (Spring 경로 충돌 방지)
+- GuestModel.giftAmount: int (Dart 64비트, BE long @Max(9_999_999L) — 오버플로우 없음)
+- clearGroup bool 파라미터: copyWith의 nullable 필드 명시 해제 패턴
+- data.sql guest 데이터: DataInitializer 커플(20000000000001) 의존 → 앱 기동 선행 필요
+
 ### [PATTERN] 첨부파일(Vault) 도메인 패턴 (7단계)
 - 상세 내용: patterns-attachment.md 참조
 - AttachmentService → BudgetRepository/RoadmapStepRepository 직접 사용 (순환 의존성 방지)

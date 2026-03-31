@@ -18,6 +18,8 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DELETE FROM weddy_guests;
+DELETE FROM weddy_guest_groups;
 DELETE FROM weddy_favorites;
 DELETE FROM weddy_budget_items;
 DELETE FROM weddy_budgets;
@@ -31,7 +33,32 @@ DELETE FROM weddy_users;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
--- 웨딩 업체 (weddy_vendors)
+-- 하객 그룹 (weddy_guest_groups)
+-- owner_oid = 커플 OID 20000000000001
+-- [주의] 이 INSERT는 DataInitializer가 생성하는 커플(20000000000001)에 의존한다.
+--        data.sql 단독 실행 시 앱 기동(@Profile("dev"))이 선행되어야 한다.
+-- ============================================================
+
+INSERT INTO weddy_guest_groups (oid, owner_oid, name, is_default, sort_order) VALUES
+('90000000000001', '20000000000001', '고교', 1, 0),
+('90000000000002', '20000000000001', '대학', 1, 1),
+('90000000000003', '20000000000001', '직장', 1, 2),
+('90000000000004', '20000000000001', '가족', 1, 3),
+('90000000000005', '20000000000001', '기타', 1, 4);
+
+-- ============================================================
+-- 샘플 하객 (weddy_guests)
+-- ============================================================
+
+INSERT INTO weddy_guests (oid, owner_oid, group_oid, name, companion_count, gift_amount, invitation_status, attend_status, memo) VALUES
+('91000000000001', '20000000000001', '90000000000001', '김민준', 1, 100000, 'PAPER',  'ATTEND',    NULL),
+('91000000000002', '20000000000001', '90000000000001', '이서연', 0, 50000,  'MOBILE', 'UNDECIDED', NULL),
+('91000000000003', '20000000000001', '90000000000003', '박준호', 1, 100000, 'PAPER',  'ATTEND',    '팀장님'),
+('91000000000004', '20000000000001', '90000000000003', '정수아', 0, 50000,  'NONE',   'ABSENT',    NULL),
+('91000000000005', '20000000000001', NULL,             '최지훈', 0, 0,      'NONE',   'UNDECIDED', NULL);
+
+-- ============================================================
+-- 웨딩 업체 (weddy_vendors) — 기초 데이터 (DataInitializer 미관리)
 -- 카테고리: HALL | STUDIO | DRESS | MAKEUP | HONEYMOON | ETC
 -- ============================================================
 

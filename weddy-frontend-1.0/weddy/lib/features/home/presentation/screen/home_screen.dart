@@ -672,6 +672,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               context.push(AppRoutes.budget);
             } else if (i == 2) {
               context.push(AppRoutes.vendor);
+            } else if (i == 3) {
+              context.push(AppRoutes.guest);
             } else if (i == 5) {
               context.push(AppRoutes.roadmap);
             } else {
