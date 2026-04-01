@@ -16,8 +16,8 @@ import 'package:weddy/features/budget/presentation/notifier/budget_notifier.dart
 // 색상 상수 (홈/체크리스트 Dark Glass 테마 통일)
 // ---------------------------------------------------------------------------
 
-const _kBg1 = Color(0xFF080810);
-const _kBg2 = Color(0xFF0C0820);
+const _kBg1 = Color(0xFF1A1A19);
+const _kBg2 = Color(0xFF111110);
 const _kGlass = Color(0x14FFFFFF);
 const _kGlassBorder = Color(0x33FFFFFF);
 const _kText = Colors.white;

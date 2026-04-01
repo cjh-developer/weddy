@@ -14,8 +14,8 @@ import 'package:weddy/features/wedding_setup/presentation/notifier/wedding_setup
 
 const _kPink = Color(0xFFEC4899);
 const _kDarkPink = Color(0xFFDB2777);
-const _kBgDark1 = Color(0xFF0D0D1A);
-const _kBgDark2 = Color(0xFF1B0929);
+const _kBgDark1 = Color(0xFF1A1A19);
+const _kBgDark2 = Color(0xFF111110);
 // Glass layers
 const _kGlass = Color(0x0FFFFFFF);          // white 6%
 const _kGlassBorder = Color(0x38FFFFFF);    // white 22%
@@ -271,7 +271,7 @@ class _WeddingDateSetupScreenState
                                   ),
                                   const SizedBox(height: 14),
                                   Text(
-                                    'WEDDY',
+                                    'WEDDLY',
                                     style: GoogleFonts.playfairDisplay(
                                       fontSize: 36,
                                       fontWeight: FontWeight.w900,

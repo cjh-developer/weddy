@@ -10,8 +10,8 @@ import 'package:weddy/features/roadmap/presentation/screen/roadmap_screen.dart';
 // 색상 상수
 // ---------------------------------------------------------------------------
 
-const _kBg1 = Color(0xFF0D0D1A);
-const _kBg2 = Color(0xFF1B0929);
+const _kBg1 = Color(0xFF1A1A19);
+const _kBg2 = Color(0xFF111110);
 const _kGlass = Color(0x14FFFFFF);
 const _kGlassBorder = Color(0x33FFFFFF);
 const _kPink = Color(0xFFEC4899);

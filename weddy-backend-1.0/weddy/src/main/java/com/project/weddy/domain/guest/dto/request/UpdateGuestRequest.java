@@ -26,6 +26,7 @@ public class UpdateGuestRequest {
     private boolean clearGroup;
 
     @Size(max = 50, message = "하객 이름은 50자 이내여야 합니다.")
+    @Pattern(regexp = "^[가-힣a-zA-Z0-9\\s\\-\\.]{1,50}$", message = "이름은 한글, 영문, 숫자, 공백, 하이픈, 점만 허용됩니다.")
     private String name;
 
     @Min(value = 0, message = "동반 인원은 0 이상이어야 합니다.")

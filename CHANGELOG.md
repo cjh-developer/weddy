@@ -4,6 +4,120 @@
 
 ---
 
+## [10단계] 하객 관리 (2026-04-01)
+
+### Added — Backend
+
+**신규 파일**
+
+| 파일 | 내용 |
+|------|------|
+| `domain/guest/entity/GuestGroup.java` | weddy_guest_groups JPA 엔티티 (is_default, sort_order) |
+| `domain/guest/entity/Guest.java` | weddy_guests JPA 엔티티 (companion_count, gift_amount, invitation_status, attend_status) |
+| `domain/guest/repository/GuestGroupRepository.java` | 그룹 CRUD + ownerOid 기반 조회 |
+| `domain/guest/repository/GuestRepository.java` | 하객 CRUD + groupOid/ownerOid 기반 조회 |
+| `domain/guest/dto/request/CreateGuestGroupRequest.java` | 그룹 생성 요청 DTO, @Pattern 검증 |
+| `domain/guest/dto/request/UpdateGuestGroupRequest.java` | 그룹 수정 요청 DTO |
+| `domain/guest/dto/request/CreateGuestRequest.java` | 하객 생성 요청 DTO, name @Pattern 검증 |
+| `domain/guest/dto/request/UpdateGuestRequest.java` | 하객 수정 요청 DTO |
+| `domain/guest/dto/response/GuestGroupResponse.java` | @JsonProperty("isDefault") 명시 |
+| `domain/guest/dto/response/GuestResponse.java` | 하객 응답 DTO (groupOid 포함) |
+| `domain/guest/dto/response/GuestSummaryResponse.java` | 집계 응답 (totalCount, attendCount, absentCount, undecidedCount, totalGiftAmount) |
+| `domain/guest/service/GuestService.java` | getOwnerOid(), findGroupWithOwnerCheck(), findGuestWithOwnerCheck(), deleteGroup() |
+| `domain/guest/controller/GuestController.java` | 9개 엔드포인트, @Validated 입력 검증 |
+
+**API 엔드포인트 추가**
+
+| 메서드 | URL | 설명 |
+|--------|-----|------|
+| GET | `/api/v1/guests/groups` | 그룹 목록 (하객 수 포함) |
+| POST | `/api/v1/guests/groups` | 그룹 생성 |
+| PATCH | `/api/v1/guests/groups/{groupOid}` | 그룹 수정 |
+| DELETE | `/api/v1/guests/groups/{groupOid}` | 그룹 삭제 (소속 하객 group_oid NULL 처리) |
+| GET | `/api/v1/guests/summary` | 요약 통계 |
+| GET | `/api/v1/guests` | 하객 목록 (groupOid 필터 선택) |
+| POST | `/api/v1/guests` | 하객 추가 |
+| PATCH | `/api/v1/guests/{guestOid}` | 하객 수정 |
+| DELETE | `/api/v1/guests/{guestOid}` | 하객 삭제 |
+
+**ErrorCode 추가**
+
+| 코드 | 의미 |
+|------|------|
+| GUEST_001 | GUEST_GROUP_NOT_FOUND |
+| GUEST_002 | GUEST_NOT_FOUND |
+| GUEST_003 | DEFAULT_GROUP_CANNOT_DELETE |
+| GUEST_004 | GUEST_NOT_IN_GROUP |
+| GUEST_005 | INVALID_ATTEND_STATUS |
+
+**스키마 변경**
+
+| 테이블 | 변경 내용 |
+|--------|---------|
+| `weddy_guest_groups` | 신규: oid PK, owner_oid INDEX, name, is_default TINYINT, sort_order, created_at |
+| `weddy_guests` | 신규: oid PK, owner_oid INDEX, group_oid INDEX, name, hand_phone, companion_count, gift_amount, invitation_status, attend_status, memo, created_at |
+
+**DataInitializer 추가**
+
+- 커플 OID 기준 기본 5그룹 (고교/대학/직장/가족/기타, is_default=1) 자동 생성
+- 샘플 하객 5명 (910000000000XX OID) 자동 생성
+
+### Added — Frontend
+
+**신규 파일**
+
+| 파일 | 내용 |
+|------|------|
+| `lib/features/guest/data/model/guest_group_model.dart` | GuestGroupModel (isDefault, guestCount) |
+| `lib/features/guest/data/model/guest_model.dart` | GuestModel (attendStatus, invitationStatus, companionCount, giftAmount) |
+| `lib/features/guest/data/model/guest_summary_model.dart` | GuestSummaryModel (집계 응답) |
+| `lib/features/guest/data/datasource/guest_remote_datasource.dart` | Dio 기반 9개 API 호출 |
+| `lib/features/guest/presentation/notifier/guest_group_notifier.dart` | sealed state + CRUD |
+| `lib/features/guest/presentation/notifier/guest_notifier.dart` | sealed state + CRUD + 정렬 |
+| `lib/features/guest/presentation/provider/guest_summary_provider.dart` | FutureProvider.autoDispose |
+| `lib/features/guest/presentation/screen/guest_screen.dart` | 동적 TabController, 대시보드 카드, 정렬 칩(5종), Dismissible 삭제 |
+| `lib/features/guest/presentation/screen/guest_form_screen.dart` | 추가/수정 통합 폼, 저장 후 pop + summary 갱신 |
+
+### Changed — Frontend
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `lib/core/router/app_router.dart` | /guest, /guest/form 경로 추가 |
+| `lib/features/home/presentation/screen/home_screen.dart` | 하객 메뉴 context.push('/guest') 연결 |
+| `lib/features/auth/presentation/notifier/auth_notifier.dart` | 로그아웃 시 guestGroupNotifierProvider.reset(), guestNotifierProvider.reset(), ref.invalidate(guestSummaryProvider) 추가 |
+
+### Fixed — Backend (lead-code-validator)
+
+| 버그 | 수정 내용 |
+|------|---------|
+| Jackson boolean 직렬화 키 불일치 | GuestGroupResponse에 @JsonProperty("isDefault") 명시 |
+
+### Fixed — Frontend (security-advisor)
+
+| 버그 | 수정 내용 |
+|------|---------|
+| auth_notifier.dart 로그아웃 시 guestSummaryProvider 미무효화 | ref.invalidate(guestSummaryProvider) 추가 |
+
+### Security — Backend (security-advisor)
+
+| 항목 | 내용 |
+|------|------|
+| name 입력 검증 | @Pattern(한글/영문/숫자/공백/하이픈/점) 추가로 XSS 방어 |
+| groupName 입력 검증 | @Pattern(한글/영문/숫자/공백/하이픈/언더스코어) 추가 |
+| IDOR 방어 | findGroupWithOwnerCheck() / findGuestWithOwnerCheck() 소유권 검증 |
+| deleteGroup() IDOR | clearGroupOid + delete 단일 트랜잭션, 타인 그룹 삭제 시 GUEST_001 반환 |
+
+### Key Design Decisions
+
+| 항목 | 결정 내용 |
+|------|---------|
+| GuestSummaryResponse 집계 방식 | findByOwnerOid 전체 조회 후 스트림 인메모리 합산 (companion_count+1) — DB 집계 함수 대신 단순 합산으로 충분 |
+| deleteGroup() 연쇄 처리 | clearGroupOid(guests.groupOid = null) → delete(group), 단일 @Transactional 보장 |
+| 기본 그룹(is_default=1) 삭제 방지 | DEFAULT_GROUP_CANNOT_DELETE (GUEST_003) 에러코드 반환 |
+| FutureProvider.autoDispose 로그아웃 | ref.invalidate() 사용 — 다음 접근 시 자동 재조회, StateNotifier.reset()과 역할 분리 |
+
+---
+
 ## [9단계] 즐겨찾기(벤더) + 업체 검색/상세 (2026-03-30)
 
 ### Added — Backend

@@ -18,8 +18,8 @@ import 'package:weddy/features/roadmap/presentation/notifier/roadmap_notifier.da
 // 색상 상수
 // ---------------------------------------------------------------------------
 
-const _kBg1 = Color(0xFF080810);
-const _kBg2 = Color(0xFF0C0820);
+const _kBg1 = Color(0xFF1A1A19);
+const _kBg2 = Color(0xFF111110);
 const _kGlass = Color(0x14FFFFFF);
 const _kGlassBorder = Color(0x33FFFFFF);
 const _kPink = Color(0xFFEC4899);

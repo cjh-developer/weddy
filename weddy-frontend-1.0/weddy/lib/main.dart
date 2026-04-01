@@ -64,7 +64,7 @@ class _WeddyAppState extends ConsumerState<WeddyApp> {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Weddy',
+      title: 'Weddly',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -83,7 +83,7 @@ class _WeddyAppState extends ConsumerState<WeddyApp> {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFFDF2F8),
+        scaffoldBackgroundColor: const Color(0xFF1A1A19),
         appBarTheme: const AppBarTheme(
           centerTitle: true,
           elevation: 0,

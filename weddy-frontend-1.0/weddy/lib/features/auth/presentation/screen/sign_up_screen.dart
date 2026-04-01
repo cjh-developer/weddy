@@ -16,8 +16,8 @@ import 'package:weddy/features/auth/presentation/notifier/auth_notifier.dart';
 
 const _kPink = Color(0xFFEC4899);
 const _kDarkPink = Color(0xFFDB2777);
-const _kBgDark1 = Color(0xFF080810);
-const _kBgDark2 = Color(0xFF0C0820);
+const _kBgDark1 = Color(0xFF1A1A19);
+const _kBgDark2 = Color(0xFF111110);
 // Glass layers
 const _kGlass = Color(0x0FFFFFFF);          // white 6%
 const _kGlassBorder = Color(0x38FFFFFF);    // white 22%
@@ -218,7 +218,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
-                                      'WEDDY',
+                                      'WEDDLY',
                                       style: GoogleFonts.playfairDisplay(
                                         fontSize: 42,
                                         fontWeight: FontWeight.w900,

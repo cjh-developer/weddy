@@ -18,8 +18,8 @@ import 'package:weddy/features/couple/presentation/notifier/couple_notifier.dart
 // Dark Glassmorphism 색상 상수
 // ---------------------------------------------------------------------------
 
-const _kBg1 = Color(0xFF080810);
-const _kBg2 = Color(0xFF0C0820);
+const _kBg1 = Color(0xFF1A1A19);
+const _kBg2 = Color(0xFF111110);
 const _kGlass = Color(0x14FFFFFF);        // white 8%
 const _kGlassBorder = Color(0x33FFFFFF);  // white 20%
 const _kPink = Color(0xFFEC4899);
@@ -71,9 +71,9 @@ String _dDayText(DateTime weddingDate) {
   final wedding =
       DateTime(weddingDate.year, weddingDate.month, weddingDate.day);
   final diff = wedding.difference(today).inDays;
-  if (diff == 0) return 'D-DAY';
-  if (diff > 0) return 'D-$diff';
-  return 'D+${diff.abs()}';
+  if (diff == 0) return '오늘이 결혼식 날이에요! 💍';
+  if (diff > 0) return '결혼까지 $diff일 남았어요!';
+  return '결혼한 지 ${diff.abs()}일 됐어요! 💍';
 }
 
 
@@ -405,53 +405,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: _kPink,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _kPink.withOpacity(0.40),
-                        blurRadius: 12,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      'W',
-                      style: GoogleFonts.playfairDisplay(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                      ),
+                // Weddly 텍스트 로고
+                ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [Color(0xFFD4748A), Color(0xFFB85C72)],
+                  ).createShader(bounds),
+                  child: Text(
+                    'Weddly',
+                    style: GoogleFonts.playfairDisplay(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '좋은 ${_greeting()}에요!',
-                      style: GoogleFonts.playfairDisplay(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: _kText,
-                      ),
-                    ),
-                    Text(
-                      subText,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: _kTextSub,
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  subText,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: _kTextSub,
+                  ),
                 ),
               ],
             ),
@@ -656,9 +634,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1.1,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 2.4,
       ),
       itemCount: menus.length,
       itemBuilder: (context, i) {
@@ -681,51 +659,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             }
           },
           child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: _kGlass,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0x1AFFFFFF), width: 1.5),
+              gradient: LinearGradient(
+                colors: [
+                  iconColor.withOpacity(0.14),
+                  const Color(0x08FFFFFF),
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0x33FFFFFF), width: 1),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Row(
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        iconColor.withOpacity(0.15),
-                        iconColor.withOpacity(0.05),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                Icon(menu.icon, color: iconColor, size: 17),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    menu.label,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _kText,
+                      letterSpacing: 0.1,
                     ),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: iconColor.withOpacity(0.2),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                    border: Border.all(
-                      color: iconColor.withOpacity(0.3),
-                      width: 1,
-                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  child: Icon(menu.icon, color: iconColor, size: 18),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  menu.label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _kText,
-                  ),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
+                Icon(
+                  Icons.chevron_right,
+                  color: const Color(0x66FFFFFF),
+                  size: 15,
                 ),
               ],
             ),
@@ -1131,24 +1097,14 @@ class _DDayChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_kPink, Color(0xFF7C3AED)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
+        color: const Color(0x22FFFFFF),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: _kPink.withOpacity(0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: const Color(0x44FFFFFF), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.favorite, color: Colors.white, size: 14),
+          const Icon(Icons.favorite, color: _kPink, size: 14),
           const SizedBox(width: 6),
           Text(
             ddayText,

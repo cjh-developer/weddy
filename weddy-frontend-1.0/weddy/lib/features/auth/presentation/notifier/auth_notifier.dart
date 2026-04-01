@@ -92,6 +92,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final TokenStorage _tokenStorage;
   final Ref _ref;
 
+  /// 동시에 여러 401이 발생했을 때 logout()이 중복 실행되는 것을 방지한다.
+  /// 예: GuestScreen 진입 시 loadGroups + loadGuests + getSummary 동시 401
+  bool _isLoggingOut = false;
+
   AuthNotifier({
     required AuthRepository repository,
     required TokenStorage tokenStorage,
@@ -215,6 +219,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// 서버 로그아웃 API가 없으므로 로컬 토큰 삭제로 처리한다.
   /// 토큰 삭제 실패는 치명적이지 않으므로 에러 상태로 전환하지 않는다.
   Future<void> logout() async {
+    // 동시에 여러 401이 발생해도 logout은 한 번만 실행한다.
+    if (_isLoggingOut) return;
+    _isLoggingOut = true;
+
     try {
       await _repository.logout();
       developer.log('[AuthNotifier] logout success', name: 'AuthNotifier');
@@ -226,6 +234,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: e,
       );
     } finally {
+      _isLoggingOut = false;
       // 커플 상태를 초기화하여 다음 사용자 로그인 시 stale 데이터가 노출되지 않도록 한다.
       _ref.read(coupleNotifierProvider.notifier).reset();
       // 직접 로드맵 상태를 초기화하여 다음 사용자 로그인 시 이전 사용자의 데이터가 노출되지 않도록 한다.
@@ -235,6 +244,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // 하객 관련 상태를 초기화하여 다음 사용자 로그인 시 이전 사용자의 하객 데이터가 노출되지 않도록 한다.
       _ref.read(guestGroupNotifierProvider.notifier).reset();
       _ref.read(guestNotifierProvider.notifier).reset();
+      // guestSummaryProvider는 FutureProvider.autoDispose이므로 화면 pop 시 자동 해제됨.
+      // logout()에서 invalidate하면 토큰 없는 상태에서 재fetch → 401 무한루프 발생하므로 호출 금지.
       state = const AuthUnauthenticated();
     }
   }

@@ -12,8 +12,8 @@ import 'package:weddy/features/checklist/presentation/notifier/checklist_notifie
 // 색상 상수 (홈 화면 Dark Glass 테마 동일 적용)
 // ---------------------------------------------------------------------------
 
-const _kBg1 = Color(0xFF080810);
-const _kBg2 = Color(0xFF0C0820);
+const _kBg1 = Color(0xFF1A1A19);
+const _kBg2 = Color(0xFF111110);
 const _kGlass = Color(0x14FFFFFF);
 const _kGlassBorder = Color(0x33FFFFFF);
 const _kPink = Color(0xFFEC4899);

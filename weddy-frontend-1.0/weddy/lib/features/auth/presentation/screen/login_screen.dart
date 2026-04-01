@@ -14,15 +14,15 @@ import 'package:weddy/features/auth/presentation/notifier/auth_notifier.dart';
 // Color Constants — Dark Glassmorphism
 // ---------------------------------------------------------------------------
 
-const _kPink = Color(0xFFEC4899);
-const _kDarkPink = Color(0xFFDB2777);
-const _kBgDark1 = Color(0xFF080810);
-const _kBgDark2 = Color(0xFF0C0820);
+const _kPink = Color(0xFFD4748A);           // 채도 낮춘 로즈
+const _kDarkPink = Color(0xFFB85C72);
+const _kBgDark1 = Color(0xFF1A1A19);
+const _kBgDark2 = Color(0xFF111110);
 // Glass layers
-const _kGlass = Color(0x0FFFFFFF);          // white 6%
-const _kGlassBorder = Color(0x38FFFFFF);    // white 22%
-const _kInputFill = Color(0x1AFFFFFF);
-const _kInputFillFocus = Color(0x26FFFFFF);
+const _kGlass = Color(0x14FFFFFF);          // white 8%
+const _kGlassBorder = Color(0x28FFFFFF);    // white 16%
+const _kInputFill = Color(0x14FFFFFF);
+const _kInputFillFocus = Color(0x1FFFFFFF);
 // Text
 const _kTextMute = Color(0x66FFFFFF);       // white 40%
 // Social
@@ -98,28 +98,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
-          // ── 배경 핑크 글로우 오브 ────────────────────────────────
+          // ── 배경 핑크 앰비언트 글로우 ─────────────────────────────
           Positioned(
-            top: -80,
-            right: -60,
+            top: -120,
+            right: -100,
             child: Container(
-              width: 260,
-              height: 260,
+              width: 380,
+              height: 380,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _kPink.withOpacity(0.07),
+                gradient: RadialGradient(
+                  colors: [
+                    _kPink.withOpacity(0.13),
+                    _kPink.withOpacity(0.0),
+                  ],
+                ),
               ),
             ),
           ),
           Positioned(
-            bottom: -100,
-            left: -80,
+            bottom: -140,
+            left: -120,
             child: Container(
-              width: 300,
-              height: 300,
+              width: 420,
+              height: 420,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _kDarkPink.withOpacity(0.06),
+                gradient: RadialGradient(
+                  colors: [
+                    _kDarkPink.withOpacity(0.10),
+                    _kDarkPink.withOpacity(0.0),
+                  ],
+                ),
               ),
             ),
           ),
@@ -141,7 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           border: Border.all(color: _kGlassBorder, width: 1.2),
                           boxShadow: [
                             BoxShadow(
-                              color: _kPink.withOpacity(0.12),
+                              color: Colors.black.withOpacity(0.30),
                               blurRadius: 32,
                               spreadRadius: 0,
                               offset: const Offset(0, 8),
@@ -166,9 +176,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         shape: BoxShape.circle,
                                         boxShadow: [
                                           BoxShadow(
-                                            color: _kPink.withOpacity(0.45),
-                                            blurRadius: 24,
-                                            offset: const Offset(0, 6),
+                                            color: _kPink.withOpacity(0.20),
+                                            blurRadius: 16,
+                                            offset: const Offset(0, 4),
                                           ),
                                         ],
                                       ),
@@ -185,7 +195,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
-                                      'WEDDY',
+                                      'WEDDLY',
                                       style: GoogleFonts.playfairDisplay(
                                         fontSize: 42,
                                         fontWeight: FontWeight.w900,
@@ -467,10 +477,10 @@ class _AnimatedFieldState extends State<_AnimatedField> {
           boxShadow: _focused
               ? [
                   BoxShadow(
-                    color: _kPink.withOpacity(0.25),
-                    blurRadius: 14,
+                    color: _kPink.withOpacity(0.12),
+                    blurRadius: 10,
                     spreadRadius: 0,
-                    offset: const Offset(0, 3),
+                    offset: const Offset(0, 2),
                   ),
                 ]
               : [],
@@ -631,9 +641,9 @@ class _PinkButtonState extends State<_PinkButton> {
                   ? null
                   : [
                       BoxShadow(
-                        color: _kPink.withOpacity(_pressed ? 0.20 : 0.45),
-                        blurRadius: _pressed ? 6 : 18,
-                        offset: Offset(0, _pressed ? 1 : 5),
+                        color: _kPink.withOpacity(_pressed ? 0.10 : 0.22),
+                        blurRadius: _pressed ? 4 : 12,
+                        offset: Offset(0, _pressed ? 1 : 3),
                       ),
                     ],
             ),

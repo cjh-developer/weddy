@@ -14,8 +14,8 @@ import 'package:weddy/features/guest/presentation/notifier/guest_summary_notifie
 // 색상 상수 (앱 전체 글래스모피즘 테마와 동일)
 // ---------------------------------------------------------------------------
 
-const _kBg1 = Color(0xFF080810);
-const _kBg2 = Color(0xFF0C0820);
+const _kBg1 = Color(0xFF1A1A19);
+const _kBg2 = Color(0xFF111110);
 const _kGlass = Color(0x1AFFFFFF);
 const _kGlassBorder = Color(0x33FFFFFF);
 const _kPink = Color(0xFFEC4899);
